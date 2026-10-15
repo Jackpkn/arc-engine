@@ -1,5 +1,21 @@
 # ARC Engine
 
+## Three-agent local pilot — October 15, 2026
+
+Open `/pilot` from the sidebar to try a fictional three-person collaboration.
+The pilot has separate gates for confidential context exchange under a standing
+mandate and human-visible release. It uses the existing loopback model adapter,
+requires no paid research or Neo4j, and blocks rather than simulating success when
+the local model is unavailable. One browser controls all three fictional people;
+this is not a deployment for real confidential peer journals.
+
+- [Concrete development plan and local setup](docs/three-agent-pilot-plan.md)
+- [Current capabilities and appearance in plain English](docs/pilot-in-plain-english.md)
+
+The private vault currently uses file permissions and separate storage, **not
+encryption at rest**. Keep the API on loopback. Existing public-profile approval
+remains separate from the pilot's circle-specific mandate.
+
 FastAPI → Claude Agent SDK → OSINT MCP tools → evidence scratchpad → structured
 graph architect → Neo4j.
 
