@@ -60,7 +60,7 @@
 .sectionHeading > span { font-family: "Courier New", monospace; font-size: 8px; color: #686d62; letter-spacing: .045em; }
 .separator { margin: 0 10px; }
 .profileGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); border: 1px solid var(--ink); }
-.profileCard { min-width: 0; text-align: left; border-right: 1px solid var(--ink); padding: 0; transition: background .2s; }
+.profileCard { display: flex; flex-direction: column; min-width: 0; text-align: left; border-right: 1px solid var(--ink); padding: 0; transition: background .2s; }
 .profileCard:last-child { border-right: 0; }
 .profileCard:hover { background: #eee9de; }
 .cardTop { display: flex; align-items: center; justify-content: space-between; padding: 15px 20px 0; font-family: "Courier New", monospace; font-size: 10px; }
@@ -72,12 +72,12 @@
 .yellow { background: var(--yellow); }
 .profileArt svg { height: 100%; max-width: 100%; }
 .profileArt > span { position: absolute; right: 10px; bottom: 7px; font-family: "Courier New", monospace; font-size: 8px; letter-spacing: .15em; }
-.cardBody { padding: 24px 20px 0; }
+.cardBody { display: flex; flex: 1; flex-direction: column; padding: 24px 20px 0; }
 .profileMeta { font-family: "Courier New", monospace; font-size: 8px; text-transform: uppercase; letter-spacing: .05em; color: #62685f; }
 .profileMeta > span { color: var(--blue); margin: 0 8px; }
 .cardBody h3 { margin-top: 15px; font-size: clamp(26px, 2.75vw, 40px); font-weight: 500; line-height: 1.02; letter-spacing: -.05em; max-width: 300px; }
-.cardSummary { margin-top: 17px; color: #666c63; font-size: 11px; line-height: 1.8; max-width: 310px; min-height: 59px; }
-.cardFooter { display: flex; justify-content: space-between; gap: 10px; border-top: 1px solid var(--rule); margin-top: 23px; padding: 18px 0; }
+.cardSummary { margin-top: 17px; margin-bottom: 23px; color: #666c63; font-size: 11px; line-height: 1.8; max-width: 310px; min-height: 59px; }
+.cardFooter { display: flex; justify-content: space-between; gap: 10px; border-top: 1px solid var(--rule); margin-top: auto; padding: 18px 0; }
 .cardFooter > span:first-child { font-size: 11px; font-weight: 600; }
 .cardFooter > span:last-child { display: flex; align-items: center; gap: 6px; font-family: "Courier New", monospace; font-size: 8px; color: #62685f; }
 .directoryFoot { display: flex; justify-content: space-between; gap: 20px; padding-top: 19px; font-size: 10px; color: #73786d; }
