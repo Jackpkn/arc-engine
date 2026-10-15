@@ -125,8 +125,10 @@ runtime, disable its cloud features, and retain that assumption in product claim
   receipts. Its deliberately private fictional canaries did not appear in the
   human results. Repeating the same request returned an identical saved result.
 - Browser verification covered creating the circle, saving all three entries,
-  granting their rules, running the actual model, and pausing a member. Pause
-  removed the current result and disabled the run control.
+  granting their rules, running the actual model, and pausing a member during
+  active inference. Pause remains available while reasoning is pending, removes
+  the current result and stops pending release. Older browser responses cannot
+  restore a revoked rule.
 - Pilot POSTs use JSON without an authored Content-Type to avoid an observed
   local browser preflight failure. The pilot router checks the exact allowed
   Origin and loopback client before parsing, then requires the owner cookie.

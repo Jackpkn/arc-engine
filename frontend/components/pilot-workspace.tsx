@@ -37,12 +37,19 @@ export function PilotWorkspace() {
   const [loading, setLoading] = useState(true);
   const [absent, setAbsent] = useState(false);
   const [busy, setBusy] = useState("");
+  const [pausing, setPausing] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [now, setNow] = useState(0);
   const mutation = useRef(false);
+  const pauseMutation = useRef(false);
+  const latestRevision = useRef(-1);
+  const revokedDuringRun = useRef(false);
 
   const accept = (next: PilotState, savedId?: string) => {
+    // A run refresh must never restore a rule that a concurrent pause revoked.
+    if (next.revision < latestRevision.current) return false;
+    latestRevision.current = next.revision;
     setState(next);
     setAbsent(false);
     setDrafts((previous) => Object.fromEntries(next.agents.map((agent) => {
@@ -50,18 +57,21 @@ export function PilotWorkspace() {
       const keepEdit = agent.agent_id !== savedId && previous[agent.agent_id] && oldAgent && dirty(oldAgent, previous[agent.agent_id]);
       return [agent.agent_id, keepEdit ? previous[agent.agent_id] : toDraft(agent)];
     })));
+    return true;
   };
 
   useEffect(() => {
     let active = true;
     pilotRequest("/api/pilot").then((data: PilotState) => {
       if (!active) return;
+      if (data.revision < latestRevision.current) return;
+      latestRevision.current = data.revision;
       setState(data);
       setDrafts(Object.fromEntries(data.agents.map((agent) => [agent.agent_id, toDraft(agent)])));
     }).catch((failure) => {
       if (!active) return;
       const message = readableError(failure);
-      if (message === "Pilot not created.") setAbsent(true);
+      if (message === "Pilot not created.") { latestRevision.current = -1; setAbsent(true); }
       else setError(message);
     }).finally(() => { if (active) setLoading(false); });
     const timer = setInterval(() => setNow(Date.now()), 30_000);
@@ -70,15 +80,20 @@ export function PilotWorkspace() {
   }, []);
 
   const act = async (label: string, operation: () => Promise<PilotState>, message: string, savedId?: string) => {
-    if (mutation.current) return;
+    if (mutation.current || pauseMutation.current) return;
     mutation.current = true;
+    if (label === "run") revokedDuringRun.current = false;
     setBusy(label); setError(""); setNotice("");
-    try { accept(await operation(), savedId); setNotice(message); }
+    try {
+      const accepted = accept(await operation(), savedId);
+      if (label === "run" && revokedDuringRun.current) setNotice("A standing rule was paused during this run. The pending introduction was discarded.");
+      else if (accepted) setNotice(message);
+    }
     catch (failure) { setError(readableError(failure)); }
     finally { mutation.current = false; setBusy(""); }
   };
   const refresh = async () => {
-    if (mutation.current) return;
+    if (mutation.current || pauseMutation.current) return;
     mutation.current = true; setBusy("refresh"); setError("");
     try {
       const next: PilotState = await pilotRequest("/api/pilot");
@@ -86,14 +101,33 @@ export function PilotWorkspace() {
       setNotice("Refreshed the saved circle. Your unsaved edits are still here.");
     } catch (failure) {
       const message = readableError(failure);
-      if (message === "Pilot not created.") { setAbsent(true); setState(null); }
+      if (message === "Pilot not created.") { latestRevision.current = -1; setAbsent(true); setState(null); }
       else setError(message);
     } finally { mutation.current = false; setBusy(""); }
   };
+  const pause = async (agent: PilotAgent) => {
+    if (pauseMutation.current) return;
+    const operation = () => pilotRequest(`/api/pilot/agents/${encodeURIComponent(agent.agent_id)}/pause`, {});
+    if (busy !== "run") {
+      await act(`pause-${agent.agent_id}`, operation, `${agent.name}’s standing rule is paused. No further representation is permitted.`);
+      return;
+    }
+    // Revocation stays available while inference is pending; other mutations remain locked.
+    pauseMutation.current = true;
+    setPausing(agent.agent_id); setError("");
+    try {
+      const next: PilotState = await operation();
+      revokedDuringRun.current = true;
+      accept(next);
+      setNotice(`${agent.name}’s standing rule is paused. Any pending introduction will be discarded.`);
+    } catch (failure) { setError(readableError(failure)); }
+    finally { pauseMutation.current = false; setPausing(""); }
+  };
   const updateDraft = (id: string, patch: Partial<Draft>) => setDrafts((previous) => ({ ...previous, [id]: { ...previous[id], ...patch } }));
+  const locked = !!busy || !!pausing;
   const readyCount = state?.agents.filter((agent) => currentMandate(agent, now)).length ?? 0;
   const hasUnsaved = !!state?.agents.some((agent) => drafts[agent.agent_id] && dirty(agent, drafts[agent.agent_id]));
-  const canRun = !!state && readyCount === 3 && !hasUnsaved && !busy;
+  const canRun = !!state && readyCount === 3 && !hasUnsaved && !locked;
   const name = (id: string) => state?.agents.find((agent) => agent.agent_id === id)?.name ?? id;
 
   return <div className="workspace-shell min-h-screen text-zinc-200">
@@ -123,13 +157,13 @@ export function PilotWorkspace() {
       </section>
 
       <div aria-live="polite" className="space-y-3">
-        {error && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-400/20 bg-amber-400/5 px-5 py-4 text-sm text-amber-200"><span>{error}</span><button disabled={!!busy} onClick={() => void refresh()} className="flex items-center gap-2 text-xs underline underline-offset-4 disabled:opacity-40"><RefreshCw size={12} />Retry saved state</button></div>}
+        {error && <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-400/20 bg-amber-400/5 px-5 py-4 text-sm text-amber-200"><span>{error}</span><button disabled={locked} onClick={() => void refresh()} className="flex items-center gap-2 text-xs underline underline-offset-4 disabled:opacity-40"><RefreshCw size={12} />Retry saved state</button></div>}
         {notice && <p className="rounded-xl border border-emerald-400/10 bg-emerald-400/3 px-5 py-3 text-xs leading-6 text-emerald-200/80">{notice}</p>}
       </div>
 
       {loading ? <div className="glass-card my-6 flex items-center gap-3 p-8 text-sm text-zinc-500"><RefreshCw size={16} className="activity-spin" />Opening the local circle…</div> : absent ?
-        <section className="glass-card my-6 flex flex-col items-start gap-6 p-7 sm:flex-row sm:items-center sm:justify-between sm:p-9"><div><Users size={26} className="mb-4 text-emerald-400" /><h2 className="text-xl font-medium">Begin with three fictional journals.</h2><p className="mt-3 max-w-xl text-sm leading-7 text-zinc-500">Create Maya, Leo and Sam on this device. They begin in local-only mode with no circle authorization. You will review the notes and approved facts before giving each representative a standing rule.</p></div><button disabled={!!busy} onClick={() => void act("create", () => pilotRequest("/api/pilot/create", {}), "Circle created. Review each journal, select Represent in this circle, save, then authorize its rule.")} className="primary-button flex items-center gap-2 whitespace-nowrap px-5 py-3">{busy === "create" ? "Creating…" : "Create fictional pilot"}<ArrowRight size={15} /></button></section> : state && <>
-        <div className="mb-4 mt-8 flex items-center justify-between gap-4"><h2 className="text-sm font-medium text-zinc-200">The circle <span className="ml-2 text-xs font-normal text-zinc-600">3 fictional participants</span></h2><button disabled={!!busy} onClick={() => void refresh()} className="flex items-center gap-2 rounded-lg px-2 py-1 text-xs text-zinc-500 hover:text-zinc-200 disabled:opacity-40"><RefreshCw size={12} />Refresh</button></div>
+        <section className="glass-card my-6 flex flex-col items-start gap-6 p-7 sm:flex-row sm:items-center sm:justify-between sm:p-9"><div><Users size={26} className="mb-4 text-emerald-400" /><h2 className="text-xl font-medium">Begin with three fictional journals.</h2><p className="mt-3 max-w-xl text-sm leading-7 text-zinc-500">Create Maya, Leo and Sam on this device. They begin in local-only mode with no circle authorization. You will review the notes and approved facts before giving each representative a standing rule.</p></div><button disabled={locked} onClick={() => void act("create", () => pilotRequest("/api/pilot/create", {}), "Circle created. Review each journal, select Represent in this circle, save, then authorize its rule.")} className="primary-button flex items-center gap-2 whitespace-nowrap px-5 py-3">{busy === "create" ? "Creating…" : "Create fictional pilot"}<ArrowRight size={15} /></button></section> : state && <>
+        <div className="mb-4 mt-8 flex items-center justify-between gap-4"><h2 className="text-sm font-medium text-zinc-200">The circle <span className="ml-2 text-xs font-normal text-zinc-600">3 fictional participants</span></h2><button disabled={locked} onClick={() => void refresh()} className="flex items-center gap-2 rounded-lg px-2 py-1 text-xs text-zinc-500 hover:text-zinc-200 disabled:opacity-40"><RefreshCw size={12} />Refresh</button></div>
         <section aria-label="Pilot participants" className="grid items-start gap-4 xl:grid-cols-3">
           {state.agents.map((agent, index) => {
             const draft = drafts[agent.agent_id] ?? toDraft(agent);
@@ -139,15 +173,15 @@ export function PilotWorkspace() {
             return <article key={agent.agent_id} className="glass-card overflow-hidden">
               <div className="flex items-center justify-between gap-3 border-b border-white/5 p-5"><div className="flex items-center gap-3"><span className={`flex size-10 items-center justify-center rounded-xl border text-sm font-medium ${index === 0 ? "border-emerald-400/20 bg-emerald-400/8 text-emerald-300" : index === 1 ? "border-sky-300/15 bg-sky-300/5 text-sky-200" : "border-violet-300/15 bg-violet-300/5 text-violet-200"}`}>{agent.name.charAt(0)}</span><div><h3 className="font-medium text-zinc-100">{agent.name}</h3><p className="mt-1 text-[11px] text-zinc-500">{agent.role}</p></div></div><span className={`rounded-full px-2 py-1 text-[10px] ${current ? "bg-emerald-400/8 text-emerald-300" : "bg-white/4 text-zinc-500"}`}>{current ? "Rule active" : agent.mode === "sealed" ? "Sealed" : "Paused"}</span></div>
               <div className="space-y-5 p-5">
-                <details className="group rounded-xl border border-white/7 bg-black/10"><summary className="flex items-center justify-between gap-3 p-4 text-xs text-zinc-400"><span className="flex items-center gap-2"><LockKeyhole size={14} />Private journal<span className="text-[10px] text-zinc-600">· entry 1</span></span><ChevronDown size={13} className="transition group-open:rotate-180" /></summary><div className="px-4 pb-4"><label htmlFor={`journal-${agent.agent_id}`} className="mb-2 block text-[10px] leading-5 text-zinc-500">Owner view. The full selected entry is available only to local reasoning when its rule permits it.</label><textarea id={`journal-${agent.agent_id}`} disabled={!!busy} value={draft.journal} onChange={(event) => updateDraft(agent.agent_id, { journal: event.target.value })} rows={7} className="w-full resize-y rounded-lg border border-white/10 bg-[#0b0d10] p-3 text-xs leading-6 text-zinc-300 outline-none disabled:opacity-50" /></div></details>
+                <details className="group rounded-xl border border-white/7 bg-black/10"><summary className="flex items-center justify-between gap-3 p-4 text-xs text-zinc-400"><span className="flex items-center gap-2"><LockKeyhole size={14} />Private journal<span className="text-[10px] text-zinc-600">· entry 1</span></span><ChevronDown size={13} className="transition group-open:rotate-180" /></summary><div className="px-4 pb-4"><label htmlFor={`journal-${agent.agent_id}`} className="mb-2 block text-[10px] leading-5 text-zinc-500">Owner view. The full selected entry is available only to local reasoning when its rule permits it.</label><textarea id={`journal-${agent.agent_id}`} disabled={locked} value={draft.journal} onChange={(event) => updateDraft(agent.agent_id, { journal: event.target.value })} rows={7} className="w-full resize-y rounded-lg border border-white/10 bg-[#0b0d10] p-3 text-xs leading-6 text-zinc-300 outline-none disabled:opacity-50" /></div></details>
 
-                <fieldset disabled={!!busy}><legend className="mb-2 text-[10px] uppercase tracking-widest text-zinc-600">This representative may</legend><div className="space-y-2">{modes.map((mode) => <label key={mode.id} className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition ${draft.mode === mode.id ? "border-emerald-400/20 bg-emerald-400/4" : "border-white/6 hover:bg-white/2"}`}><input type="radio" name={`mode-${agent.agent_id}`} value={mode.id} checked={draft.mode === mode.id} onChange={() => updateDraft(agent.agent_id, { mode: mode.id })} className="mt-0.5 accent-emerald-400" /><span><span className="block text-xs text-zinc-300">{mode.label}</span>{draft.mode === mode.id && <span className="mt-1 block text-[11px] leading-5 text-zinc-500">{mode.description}</span>}</span></label>)}</div></fieldset>
+                <fieldset disabled={locked}><legend className="mb-2 text-[10px] uppercase tracking-widest text-zinc-600">This representative may</legend><div className="space-y-2">{modes.map((mode) => <label key={mode.id} className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition ${draft.mode === mode.id ? "border-emerald-400/20 bg-emerald-400/4" : "border-white/6 hover:bg-white/2"}`}><input type="radio" name={`mode-${agent.agent_id}`} value={mode.id} checked={draft.mode === mode.id} onChange={() => updateDraft(agent.agent_id, { mode: mode.id })} className="mt-0.5 accent-emerald-400" /><span><span className="block text-xs text-zinc-300">{mode.label}</span>{draft.mode === mode.id && <span className="mt-1 block text-[11px] leading-5 text-zinc-500">{mode.description}</span>}</span></label>)}</div></fieldset>
 
-                <div><label htmlFor={`facts-${agent.agent_id}`} className="flex items-center gap-2 text-xs font-medium text-zinc-300"><ShieldCheck size={14} className="text-emerald-400/80" />Facts allowed in human-visible outcomes</label><p className="mb-3 mt-2 text-[11px] leading-5 text-zinc-500">Review these as {agent.name}. One exact statement per line. These facts may be shown to the other two people in this fictional circle. Confidential peer understanding is controlled separately above.</p><textarea id={`facts-${agent.agent_id}`} disabled={!!busy} value={draft.release_facts} onChange={(event) => updateDraft(agent.agent_id, { release_facts: event.target.value })} rows={4} placeholder="Write only what this representative may disclose…" className="w-full resize-y rounded-lg border border-white/10 bg-[#0b0d10] p-3 text-xs leading-6 text-zinc-300 outline-none placeholder:text-zinc-700 disabled:opacity-50" /></div>
+                <div><label htmlFor={`facts-${agent.agent_id}`} className="flex items-center gap-2 text-xs font-medium text-zinc-300"><ShieldCheck size={14} className="text-emerald-400/80" />Facts allowed in human-visible outcomes</label><p className="mb-3 mt-2 text-[11px] leading-5 text-zinc-500">Review these as {agent.name}. One exact statement per line. These facts may be shown to the other two people in this fictional circle. Confidential peer understanding is controlled separately above.</p><textarea id={`facts-${agent.agent_id}`} disabled={locked} value={draft.release_facts} onChange={(event) => updateDraft(agent.agent_id, { release_facts: event.target.value })} rows={4} placeholder="Write only what this representative may disclose…" className="w-full resize-y rounded-lg border border-white/10 bg-[#0b0d10] p-3 text-xs leading-6 text-zinc-300 outline-none placeholder:text-zinc-700 disabled:opacity-50" /></div>
 
-                <div className="flex items-center justify-between gap-3"><span className="text-[10px] text-zinc-600">{unsaved ? "Unsaved changes · rule must be renewed" : `Saved · revision ${agent.revision}`}</span><button disabled={!!busy || !unsaved} onClick={() => void act(`save-${agent.agent_id}`, () => pilotRequest(`/api/pilot/agents/${encodeURIComponent(agent.agent_id)}/journal`, { revision: agent.revision, journal: draft.journal, release_facts: facts(draft.release_facts), mode: draft.mode }), `${agent.name}’s entry and disclosure facts are saved. Renew the standing rule to resume representation.`, agent.agent_id)} className="rounded-lg border border-white/12 px-3 py-2 text-xs text-zinc-300 hover:bg-white/4 disabled:opacity-30">{busy === `save-${agent.agent_id}` ? "Saving…" : "Save changes"}</button></div>
+                <div className="flex items-center justify-between gap-3"><span className="text-[10px] text-zinc-600">{unsaved ? "Unsaved changes · rule must be renewed" : `Saved · revision ${agent.revision}`}</span><button disabled={locked || !unsaved} onClick={() => void act(`save-${agent.agent_id}`, () => pilotRequest(`/api/pilot/agents/${encodeURIComponent(agent.agent_id)}/journal`, { revision: agent.revision, journal: draft.journal, release_facts: facts(draft.release_facts), mode: draft.mode }), `${agent.name}’s entry and disclosure facts are saved. Renew the standing rule to resume representation.`, agent.agent_id)} className="rounded-lg border border-white/12 px-3 py-2 text-xs text-zinc-300 hover:bg-white/4 disabled:opacity-30">{busy === `save-${agent.agent_id}` ? "Saving…" : "Save changes"}</button></div>
               </div>
-              <div className="border-t border-white/5 bg-white/[0.015] p-5"><div className="mb-2 flex items-center gap-2 text-xs text-zinc-300"><Fingerprint size={14} className="text-zinc-500" />Standing rule for this circle</div><p className="text-[11px] leading-6 text-zinc-500">For a professional introduction, allow local reasoning with <span className="text-zinc-300">{peers.map((peer) => peer.name).join(" and ")}</span> using this entry. Release only the approved facts above.</p><div className="my-3 flex items-start gap-2 text-[10px] leading-5 text-zinc-600"><Clock3 size={12} className="mt-1 shrink-0" />{current && agent.mandate ? `Active until ${formatDate(agent.mandate.expires_at)}.` : agent.mandate ? `Previous rule expired or became invalid (${formatDate(agent.mandate.expires_at)}).` : "No current authorization. The next rule lasts 24 hours."}</div><div className="flex gap-2"><button disabled={!!busy || unsaved || agent.mode !== "represent" || current} onClick={() => void act(`authorize-${agent.agent_id}`, () => pilotRequest(`/api/pilot/agents/${encodeURIComponent(agent.agent_id)}/mandate`, { revision: agent.revision, source_entry_ids: [agent.entry_id], peer_ids: peers.map((peer) => peer.agent_id), expires_in_hours: 24 }), `${agent.name}’s standing rule is active for this entry and these two peers for 24 hours.`)} className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-emerald-400/20 bg-emerald-400/7 px-3 py-2.5 text-xs text-emerald-300 transition hover:bg-emerald-400/12 disabled:opacity-30">{current ? <Check size={13} /> : <KeyRound size={13} />}{current ? "Authorized" : busy === `authorize-${agent.agent_id}` ? "Authorizing…" : "Authorize rule · 24h"}</button><button disabled={!!busy || !agent.mandate} onClick={() => void act(`pause-${agent.agent_id}`, () => pilotRequest(`/api/pilot/agents/${encodeURIComponent(agent.agent_id)}/pause`, {}), `${agent.name}’s standing rule is paused. No further representation is permitted.`)} className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2.5 text-xs text-zinc-400 hover:bg-white/4 disabled:opacity-30"><CirclePause size={13} />Pause</button></div>{unsaved ? <p className="mt-3 text-[10px] text-amber-200/70">Save your changes before authorizing.</p> : agent.mode !== "represent" && <p className="mt-3 text-[10px] text-zinc-600">Select Represent in this circle, then save to enable a rule.</p>}</div>
+              <div className="border-t border-white/5 bg-white/[0.015] p-5"><div className="mb-2 flex items-center gap-2 text-xs text-zinc-300"><Fingerprint size={14} className="text-zinc-500" />Standing rule for this circle</div><p className="text-[11px] leading-6 text-zinc-500">For a professional introduction, allow local reasoning with <span className="text-zinc-300">{peers.map((peer) => peer.name).join(" and ")}</span> using this entry. Release only the approved facts above.</p><div className="my-3 flex items-start gap-2 text-[10px] leading-5 text-zinc-600"><Clock3 size={12} className="mt-1 shrink-0" />{current && agent.mandate ? `Active until ${formatDate(agent.mandate.expires_at)}.` : agent.mandate ? `Previous rule expired or became invalid (${formatDate(agent.mandate.expires_at)}).` : "No current authorization. The next rule lasts 24 hours."}</div><div className="flex gap-2"><button disabled={locked || unsaved || agent.mode !== "represent" || current} onClick={() => void act(`authorize-${agent.agent_id}`, () => pilotRequest(`/api/pilot/agents/${encodeURIComponent(agent.agent_id)}/mandate`, { revision: agent.revision, source_entry_ids: [agent.entry_id], peer_ids: peers.map((peer) => peer.agent_id), expires_in_hours: 24 }), `${agent.name}’s standing rule is active for this entry and these two peers for 24 hours.`)} className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-emerald-400/20 bg-emerald-400/7 px-3 py-2.5 text-xs text-emerald-300 transition hover:bg-emerald-400/12 disabled:opacity-30">{current ? <Check size={13} /> : <KeyRound size={13} />}{current ? "Authorized" : busy === `authorize-${agent.agent_id}` ? "Authorizing…" : "Authorize rule · 24h"}</button><button disabled={!!pausing || (!!busy && busy !== "run") || !agent.mandate} onClick={() => void pause(agent)} className="flex items-center gap-1.5 rounded-lg border border-white/10 px-3 py-2.5 text-xs text-zinc-400 hover:bg-white/4 disabled:opacity-30"><CirclePause size={13} />{pausing === agent.agent_id || busy === `pause-${agent.agent_id}` ? "Pausing…" : "Pause"}</button></div>{unsaved ? <p className="mt-3 text-[10px] text-amber-200/70">Save your changes before authorizing.</p> : agent.mode !== "represent" && <p className="mt-3 text-[10px] text-zinc-600">Select Represent in this circle, then save to enable a rule.</p>}</div>
             </article>;
           })}
         </section>

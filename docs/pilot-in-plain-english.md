@@ -38,7 +38,8 @@ can also stay quiet. A missing model or invalid answer produces a blocked state,
 not a made-up successful conversation.
 
 Changing a journal, pausing a representative or allowing permission to expire
-stops stale work. Reopening a completed request does not run the model again.
+stops stale work. You can pause even while the agents are reasoning; the pending
+introduction is then discarded. Reopening a completed request does not run the model again.
 Receipts show which source version was selected for each local reasoning attempt.
 An unsuccessful attempt does not prove the model received or understood it.
 
