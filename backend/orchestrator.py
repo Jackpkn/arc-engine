@@ -176,3 +176,14 @@ async def run_osint_orchestrator(target: str, scratchpad: InvestigationScratchpa
                          "error": type(exc).__name__})
     finally:
         scratchpad.cancel_pending_input()
+
+
+async def run_recursive_investigation(goal, board, worker, policy, *, critic=None):
+    """Explicit new engine entry point; adapters are injected, never inferred from keys.
+
+    Legacy completed investigations remain readable. The offline replay uses this
+    entry point; enabling a paid worker requires a separately authorized adapter.
+    """
+    from backend.research.scheduler import run_research
+    from backend.research.critic import review_progress
+    return await run_research(goal, board, worker, policy, critic=critic or review_progress)
