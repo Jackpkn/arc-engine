@@ -15,13 +15,14 @@ from fastmcp.tools import ToolResult, InputRequiredToolResult
 from fastmcp.exceptions import ToolError
 
 from backend.agent import upstream_registry, cache_namespace
-from backend.source_cache import CACHE_NOTE, CacheBlocked, SourceCache, cacheable
+from backend.source_cache import CACHE_NOTE, CacheBlocked, SourceCache, cacheable, refresh_headers
 from backend.storage import database_path
 import json
 
 
 class SourceCacheMiddleware(Middleware):
-    def __init__(self, cache: SourceCache, namespace: str, allowed: set[str], refresh_id: str = ""):
+    def __init__(self, cache: SourceCache, namespace: str, allowed: set[str], refresh_id: str = "", *, offline: bool = False):
+        self.offline = offline
         self.cache, self.namespace, self.allowed, self.refresh_id = cache, namespace, allowed, refresh_id
 
     async def on_call_tool(self, context, call_next):
@@ -32,7 +33,14 @@ class SourceCacheMiddleware(Middleware):
         if getattr(context.message, "task", None):
             raise ToolError("Background tool tasks are not enabled for cached source reads.")
         try:
-            key, entry = self.cache.claim(self.namespace, name, context.message.arguments or {}, self.refresh_id)
+            if self.offline:
+                from backend.source_cache import request_key
+                key = request_key(self.namespace, name, context.message.arguments or {})
+                entry = self.cache.lookup(self.namespace, name, context.message.arguments or {})
+                if entry is None:
+                    raise ToolError("MISSING_CACHED_SOURCE: offline mode forbids upstream calls.")
+            else:
+                key, entry = self.cache.claim(self.namespace, name, context.message.arguments or {}, self.refresh_id)
         except CacheBlocked as exc:
             raise ToolError(str(exc)) from None
         if entry.get("hit"):
@@ -66,11 +74,17 @@ def build_proxy(provider: str):
     servers, allowed = upstream_registry()
     if provider not in {"osint", "firecrawl", "github"} or provider not in servers:
         raise ValueError("Source provider is not configured.")
+    namespace = cache_namespace(provider, servers[provider])
+    if provider == "osint" and os.getenv("ARC_CACHE_REFRESH_ID") and os.getenv("APIFY_API_TOKEN"):
+        servers[provider] = {**servers[provider], "headers": {
+            **servers[provider].get("headers", {}),
+            **refresh_headers(os.environ["ARC_CACHE_REFRESH_ID"], os.environ.get("APIFY_API_TOKEN", "")),
+        }}
     cache = SourceCache(database_path())
     proxy = create_proxy({"mcpServers": {provider: servers[provider]}}, name=f"ARC-{provider}-cache")
-    proxy.add_middleware(SourceCacheMiddleware(cache, cache_namespace(provider, servers[provider]),
+    proxy.add_middleware(SourceCacheMiddleware(cache, namespace,
         {tool.split("__", 2)[2] for tool in allowed if tool.startswith(f"mcp__{provider}__")},
-        os.getenv("ARC_CACHE_REFRESH_ID", "")))
+        os.getenv("ARC_CACHE_REFRESH_ID", ""), offline=os.getenv("ARC_RESEARCH_OFFLINE") == "1"))
     return proxy
 
 

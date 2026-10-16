@@ -1,6 +1,14 @@
 """ARC's four custom OSINT tools, served over Streamable HTTP."""
 
 import asyncio
+import sys
+from pathlib import Path
+
+if __package__ in {None, ""}:
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+from backend.source_cache import SourceCache, CacheBlocked, verified_refresh_id
+from backend.storage import database_path
 import json
 import logging
 import os
@@ -13,6 +21,7 @@ from apify_client import ApifyClientAsync
 from exa_py import AsyncExa
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
+from fastmcp.server.dependencies import get_http_headers
 
 mcp = FastMCP("ARC-Unified-OSINT-Server", mask_error_details=True)
 github_requests = asyncio.Lock()
@@ -86,7 +95,21 @@ async def run_apify(actor: str, run_input: dict, limit: int) -> list[dict]:
             raise ValueError
     except (InvalidOperation, ValueError):
         raise ToolError("APIFY_MAX_TOTAL_CHARGE_USD must be a positive finite amount.") from None
-    client = ApifyClientAsync(require_key("APIFY_API_TOKEN"))
+    if os.getenv("ARC_RESEARCH_OFFLINE") == "1":
+        raise ToolError("Offline mode forbids Apify calls.")
+    token = require_key("APIFY_API_TOKEN")
+    try:
+        refresh_id = verified_refresh_id(get_http_headers(), token)
+    except ValueError:
+        raise ToolError("Invalid application refresh identity.") from None
+    operations = SourceCache(database_path())
+    try:
+        operation_id = operations.begin_operation("apify", actor, {"input": run_input, "limit": limit},
+                                                   refresh_id)
+    except CacheBlocked as exc:
+        operations.close()
+        raise ToolError(str(exc)) from None
+    client = ApifyClientAsync(token)
     run_id = None
     try:
         # Both configured actors currently use pay-per-event pricing. Keep the
@@ -99,9 +122,12 @@ async def run_apify(actor: str, run_input: dict, limit: int) -> list[dict]:
             max_items=limit, max_total_charge_usd=charge_limit,
         )
         run_id = started.id
+        operations.record_operation(operation_id, provider_run_id=run_id, status="RUNNING")
         logger.info(json.dumps({"event": "apify.run_started", "run_id": run_id, "actor": actor}))
         run = await client.run(run_id).wait_for_finish()
         if run is not None:
+            operations.record_operation(operation_id, provider_run_id=run_id, status=str(run.status),
+                                        usage_usd=float(run.usage_total_usd) if run.usage_total_usd is not None else None)
             logger.info(json.dumps({"event": "apify.run_finished", "run_id": run_id,
                 "status": run.status, "usage_total_usd": run.usage_total_usd,
                 "charged_event_counts": run.charged_event_counts}))
@@ -118,6 +144,7 @@ async def run_apify(actor: str, run_input: dict, limit: int) -> list[dict]:
         detail = f" Check existing run {run_id}." if run_id else " Start outcome may be unknown."
         raise ToolError(f"Apify request failed.{detail} Do not automatically rerun the actor.") from None
     finally:
+        operations.close()
         await client.http_client.aclose()
 
 
