@@ -44,6 +44,8 @@ class RunStore:
         state = {key: getattr(run, key) for key in (
             "done", "budget", "chat_session_id", "chat_cost", "chat_blocked",
             "chat_requests", "refresh_sources",
+            "collection_mode", "source_requests",
+            "chat_evidence_ids",
         )}
         state["human_decisions"] = pad.human_decisions
         created = run.events[0].get("timestamp", 0) if run.events else 0

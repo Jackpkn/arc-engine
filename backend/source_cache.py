@@ -30,8 +30,17 @@ def canonical_inputs(tool: str, inputs: dict) -> dict:
             value["linkedin_url"] = f"https://www.linkedin.com{url.path.rstrip('/')}"
         if tool == "scrape_linkedin_posts":
             value.setdefault("max_posts", 10)
-    elif tool == "search_identity_exa" and isinstance(value.get("query"), str):
+    elif tool in {"search_identity_exa", "search_public_web", "search_publications_crossref"} and isinstance(value.get("query"), str):
         value["query"] = value["query"].strip()
+        if tool == "search_public_web":
+            value.setdefault("backend", "auto")
+    elif tool in {"search_username_sherlock", "search_username_maigret"} and isinstance(value.get("sites"), list):
+        if all(isinstance(site, str) for site in value["sites"]):
+            value["sites"] = sorted(set(value["sites"]))
+    elif tool in {"inspect_domain_theharvester", "inspect_domain_dns", "inspect_domain_archive"} and isinstance(value.get("domain"), str):
+        value["domain"] = value["domain"].strip().lower().rstrip(".")
+        if tool == "inspect_domain_dns":
+            value.setdefault("record_type", "A")
     elif tool == "inspect_github_developer_profile" and isinstance(value.get("github_handle"), str):
         value["github_handle"] = value["github_handle"].lower()
     return value

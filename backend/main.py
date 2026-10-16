@@ -10,7 +10,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, Header, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from pydantic import BaseModel, Field
 
 from backend.orchestrator import run_osint_orchestrator
@@ -20,6 +20,7 @@ from backend.storage import RunStore, database_path
 from backend.profile_routes import router as profile_router
 from backend.vault_routes import router as vault_router
 from backend.agent_routes import router as agent_router
+from backend.evidence_routes import router as evidence_router
 
 
 runs: dict[str, Investigation] = {}
@@ -65,6 +66,7 @@ app = FastAPI(title="ARC OSINT Engine", lifespan=lifespan)
 app.include_router(profile_router)
 app.include_router(vault_router)
 app.include_router(agent_router)
+app.include_router(evidence_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[origin.strip() for origin in os.getenv(
@@ -72,6 +74,40 @@ app.add_middleware(
     ).split(",") if origin.strip()],
     allow_methods=["GET", "POST", "DELETE"], allow_headers=["Content-Type", "Last-Event-ID"], allow_credentials=True,
 )
+
+
+@app.get("/api/tools")
+async def tool_status():
+    from backend.osint_tools import EXECUTABLES, executable
+    return {"local_tools": {name: {"installed": executable(name) is not None, "paid_provider": False}
+                            for name in EXECUTABLES},
+            "crossref": {"enabled": True, "paid_provider": False},
+            "free_web_search": {"enabled": True, "paid_provider": False},
+            "google_dorking": {"mode": "ddgs_google_and_search_links", "paid_provider": False},
+            "maltego": {"mode": "csv_export", "paid_provider": False},
+            "robin": {"enabled": os.getenv("ARC_ROBIN_ENABLED") == "1", "mode": "search_and_scrape_only"}}
+
+
+@app.get("/api/tools/google-dorks")
+async def google_dorks(subject: str = Query(min_length=1, max_length=1000), domain: str = ""):
+    from backend.osint_tools import google_dork_links
+    try:
+        return google_dork_links(subject, domain)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from None
+
+
+@app.get("/api/investigate/{session_id}/exports/maltego.csv")
+async def export_maltego(session_id: str):
+    from backend.maltego import graph_csv
+    run = get_run(session_id)
+    if run is None:
+        raise HTTPException(404, "Investigation not found.")
+    graph = next((event["graph"] for event in reversed(run.events) if event["type"] == "graph.final_commit"), None)
+    if graph is None:
+        raise HTTPException(409, "This investigation has no committed public graph to export.")
+    return Response(graph_csv(graph), media_type="text/csv",
+                    headers={"Content-Disposition": 'attachment; filename="arc-maltego.csv"'})
 
 
 async def run_pipeline(session_id: str, run: Investigation, budget: float | None):

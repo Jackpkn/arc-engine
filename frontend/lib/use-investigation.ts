@@ -27,6 +27,8 @@ export function useInvestigation() {
   const mounted = useRef(false);
   const pendingStart = useRef<{ target: string; refreshSources: boolean; requestId: string } | null>(null);
   const pendingChat = useRef<{ sessionId: string; text: string; requestId: string; offset: number } | null>(null);
+  const pendingCase = useRef<{ target: string; requestId: string } | null>(null);
+  const pendingSource = useRef<{ sessionId: string; signature: string; requestId: string; offset: number } | null>(null);
   const lastEventId = useRef(0);
 
   const refreshHistory = useCallback(async () => {
@@ -56,9 +58,9 @@ export function useInvestigation() {
         if (id && id <= lastEventId.current) return;
         if (id) lastEventId.current = id;
         setState((s) => applyEvent(s, event));
-        if (["investigation.complete", "investigation.failed", "investigation.cancelled", "conversation.complete", "conversation.failed", "conversation.cancelled"].includes(event.type)) {
+        if (["case.ready", "source.complete", "source.failed", "source.cancelled", "investigation.complete", "investigation.failed", "investigation.cancelled", "conversation.complete", "conversation.failed", "conversation.cancelled"].includes(event.type)) {
           active.current = false;
-        } else if (["investigation.started", "conversation.started"].includes(event.type)) active.current = true;
+        } else if (["investigation.started", "conversation.started", "source.started"].includes(event.type)) active.current = true;
       } catch { setState((s) => ({ ...s, error: "An unreadable stream event was received." })); }
     };
     source.onerror = () => {
@@ -141,5 +143,43 @@ export function useInvestigation() {
     catch (error) { setState((s) => ({ ...s, error: String(error) })); }
   };
   const evidence = (id: string) => request(`/api/investigate/${encodeURIComponent(state.sessionId)}/evidence/${encodeURIComponent(id)}`);
-  return { state, start, send, answer, cancel, evidence, history, historyError, refreshHistory, open, newInvestigation };
+  const createCase = async (target: string) => {
+    target = target.trim();
+    if (!target || active.current) return false;
+    active.current = true;
+    const attempt = pendingCase.current?.target === target ? pendingCase.current : { target, requestId: crypto.randomUUID() };
+    pendingCase.current = attempt;
+    setState({ ...initialState, target, status: "starting", collectionMode: "sources" });
+    try {
+      const result = await request("/api/cases", { target, request_id: attempt.requestId });
+      pendingCase.current = null;
+      sessionStorage.setItem(STORAGE_KEY, result.session_id);
+      setState((s) => ({ ...s, sessionId: result.session_id }));
+      connect(result.session_id); void refreshHistory(); return true;
+    } catch (error) {
+      active.current = false;
+      setState((s) => ({ ...s, status: "failed", error: String(error) })); return false;
+    }
+  };
+  const collectSource = async (tool: string, args: Record<string, unknown>, freshSources: boolean) => {
+    if (!state.sessionId || active.current) return false;
+    active.current = true;
+    const signature = JSON.stringify([tool, args, freshSources]);
+    const previous = pendingSource.current;
+    const attempt = previous?.sessionId === state.sessionId && previous.signature === signature ? previous
+      : { sessionId: state.sessionId, signature, requestId: crypto.randomUUID(), offset: lastEventId.current };
+    pendingSource.current = attempt;
+    setState((s) => ({ ...s, status: "starting", phase: "source", error: "" }));
+    try {
+      await request(`/api/investigate/${encodeURIComponent(state.sessionId)}/sources`, {
+        tool, arguments: args, fresh_sources: freshSources, request_id: attempt.requestId,
+      });
+      pendingSource.current = null;
+      connect(state.sessionId, attempt.offset); void refreshHistory(); return true;
+    } catch (error) {
+      active.current = false;
+      setState((s) => ({ ...s, status: "failed", phase: "source", error: String(error) })); return false;
+    }
+  };
+  return { state, start, send, answer, cancel, evidence, history, historyError, refreshHistory, open, newInvestigation, createCase, collectSource };
 }
