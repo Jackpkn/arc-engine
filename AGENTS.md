@@ -102,3 +102,32 @@ remote pairing and identity verification remain future work. Spending-cap expans
 Graphiti and multi-tenant RBAC are explicitly deferred. Eleven offline tests plus
 lint/build and intercepted browser workflows passed; no real claim or fake peer
 judgment was written.
+
+October 15 cache-only recursive model evaluation: the user authorized ONE trial
+under $0.10. This authorization has been consumed: six Haiku 5.5 Messages calls,
+43,736 input/5,317 output tokens, $0.0070321 at published rates. Zero source calls,
+Neo4j writes or private-vault reads. Results are partial: duplicate project claim
+selection omitted OAN, fenced worker JSON was rejected, portrait lacked one
+section's span citations, and metadata-heavy retrieval missed relevant cached
+README passages. Do not rerun or activate the live default without a new request.
+Artifacts: /private/tmp/arc-cached-model-eval; report:
+docs/cached-model-evaluation-2026-10-15.md. Offline fence recovery is an unreviewed
+proposal only; do not promote it to canonical support. Crusoe endpoint/model
+configuration remains pending. Backend suite now has 60 passing tests.
+
+October 16 workspace integration supersedes the earlier "do not activate default"
+note: the user explicitly requested wiring the recursive engine to Investigate.
+The normal API now calls research/pipeline.py (SDK harvest, then case-only focused
+workers/critic and reviewed projection/portrait). No new paid call was authorized
+or made during this integration. The fresh paid path still needs an authorized
+end-to-end evaluation; do not launch it as a smoke test.
+The main Conversation has a no-credit saved-profile review action for 543e4074.
+It uses reviewed deterministic fixtures and saved model portrait responses, clearly
+labeled in the UI. It writes local case/history only: no source calls, Neo4j writes,
+private notes or peer mutations. Do not misrepresent it as fresh model reasoning.
+Case-scoped exact-span API routes and Dossier/Graph inspectors expose support,
+quotes, pointers, dates and gaps. Missing portrait citations suppress that section's
+assertion. Fenced JSON/trailing commas normalize locally; no paid repair retries.
+Large exclusion manifests stay in SQLite; worker packets retain count/manifest ID.
+Real FastAPI/browser replay, graph selection, dossier passages, reload and mobile
+checks passed. Browser receipt: /private/tmp/arc-workspace-browser.json.

@@ -1,7 +1,76 @@
 # ARC Engine
 
-FastAPI → Claude Agent SDK → OSINT MCP tools → evidence scratchpad → structured
-graph architect → Neo4j.
+FastAPI → Claude Agent SDK + OSINT MCP harvesting → SQLite evidence case →
+bounded recursive workers and critic → reviewed graph + cited portrait → Neo4j.
+
+## Inspect the recursive workflow in the normal workspace
+
+Open [ARC](http://localhost:3000) with the API running on port 8000. Click
+**Review saved Pawan kumar evidence · no credits** in Conversation. This starts
+the cached review through the same investigation creation, SSE and history routes
+as normal research; no file upload or separate replay screen is needed.
+
+- Conversation shows three waves, eight tasks, review/recovery decisions and the
+  stop reason. The cached run deliberately uses reviewed deterministic fixtures;
+  simulated outages are labeled. It is not a fresh model investigation.
+- Dossier includes Stela, Flightdeck and Open Agent Network. Click a claim in
+  **What the evidence supports**, a claim card, or **Inspect exact passages** in
+  a portrait section. The drawer shows source text, the support badge, original
+  collection date, source URL, JSON pointer, character offsets when present,
+  snapshot hash and unresolved gaps. JSON text fields display readably while the
+  full captured record remains expandable.
+- Graph node clicks and the **Inspect node** selector open the same drawer.
+  Cached graphs are explicitly uncommitted previews. Reloading or reopening
+  history reuses the saved events and case without restarting research.
+- Four portrait sections reuse the previously paid model response, remapping
+  citations only to hash-identical sources. Builder Velocity is visibly
+  insufficient because the saved response omitted its passage citations.
+  These are model interpretations, not independently established judgments.
+
+The cached action uses session `543e4074-d81b-4ec5-993d-d23c36794c83`, reads its
+saved source snapshots, and writes a new local review case/history. It makes no
+model, scraper, GitHub or Neo4j calls and does not access the private journal.
+Follow-up model chat is disabled for this mode. Saved portrait inputs default to
+`/private/tmp/arc-cached-model-eval` (`ARC_CACHED_MODEL_EVAL_DIR` override); if those
+artifacts are unavailable, portrait sections are reported missing. Existing
+completed review events retain their displayed portrait across API restarts.
+
+Normal **Investigate** now calls `research/pipeline.py`: existing SDK harvesting
+followed by the recursive scheduler, focused model workers/critic, cited portrait,
+and a reviewed graph commit. Source acquisition remains the existing harvest
+stage; recursive workers inspect the captured case, without making additional
+source calls. This new paid path has not been exercised end to end. Browser
+verification uses only the cached path; starting normal research still spends
+provider/model credits and requires the user's authorization.
+
+Retrieval uses case-scoped SQLite FTS5 (`bm25`, strict terms then keyword OR
+fallback), prioritizes explicitly cited passages and linked repository sections,
+and stores large exclusion manifests locally instead of in the model prompt.
+This is lexical retrieval, not semantic embeddings. Local JSON normalization
+accepts whole Markdown fences and trailing commas outside strings; schema,
+scope, citation and review checks remain mandatory. Missing evidence is never
+invented to repair an output. [SQLite FTS5 documentation](https://www.sqlite.org/fts5.html)
+was consulted October 15, 2026.
+
+Verification (October 16): 69 backend tests, ESLint, production build, browser
+clicks through the actual FastAPI/SSE workspace, saved-session reload and mobile
+overflow checks. The
+browser receipt is `/private/tmp/arc-workspace-browser.json`; case artifacts are
+under `.arc/research/<review-session-id>/`. The browser check can be repeated
+without starting another review:
+
+```sh
+node frontend/scripts/check-workspace-research.mjs <completed-review-session-id>
+```
+
+It requires the local app/API and an isolated Chrome debugging session on port
+9223. Its request guard rejects fresh investigations and external requests.
+
+Operator identity choices are retained as context through extraction, workers
+and critic; identity-search snippets stay in the source snapshot but are excluded
+from claim packets. They are not independent corroboration. Failed/cancelled
+research persists reported costs too; unknown receipts block follow-ups and the
+UI explicitly labels the displayed known partial cost as incomplete.
 
 ## Core profile workflow — October 15, 2026
 
@@ -578,3 +647,19 @@ it into chat. ARC uses it both for the custom public-profile REST tool and the
 official hosted MCP server, with read-only MCP tools allowlisted. Authentication,
 MCP tool discovery, one public file read and the custom public-profile tool were
 live-verified on October 14, 2026; no additional permissions were requested.
+
+## Cached model evaluation (October 15, 2026)
+
+One authorized recursive cache-only trial completed six model calls for
+$0.0070321 in usage-priced charges, with zero source calls or Neo4j writes.
+It exposed extraction coverage, retrieval and output-contract failures. The
+subsequent workspace integration above replaces the default route in code;
+no additional paid evaluation has been run. See the [full evaluation report](docs/cached-model-evaluation-2026-10-15.md).
+Do not rerun its paid command without new authorization.
+
+Provider parameters were checked against the official
+[Haiku 5.5 model/pricing documentation](https://platform.claude.com/docs/en/models/haiku-5-5/overview),
+[token counting documentation](https://platform.claude.com/docs/en/build-with-claude/token-counting),
+and [Messages API](https://platform.claude.com/docs/en/api/messages/create).
+The evaluation bounds individual requests and total call count; it does not rely
+on the SDK dollar threshold being a prepaid hard cap.
