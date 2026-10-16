@@ -1,168 +1,154 @@
 # ARC product requirements — October 15, 2026
 
-Status: founder brief and development sequence for feedback. `/studio` is an
-interactive, fictional UI mockup; `/pilot` remains the working local three-agent
-simulation. This brief does not claim the proposed judgment engine is built.
+Status: revised founder brief after UI review. This revision supersedes the
+previous permission and owner-written correction flows in `/studio`. The
+founder-approved visual style is retained. The studio remains an interactive,
+fictional preview; a continuous judgment engine is the next development task.
 
 ## The requirements, in one paragraph
 
-ARC should build an evolving profile of a person that other agents can consult.
-Its profile cards should show the AI's interpretation of recurring evidence—such
-as “appears to be a committed gym enthusiast”—with reasons, uncertainty, and room
-for correction. People should be able to claim their profile and continually
-influence how they are understood through a private journal, using a blank
-writing page, pasted text, and eventually connected services. The interface
-should have sharp corners, bold color, and playful details inspired by Underdog,
-with onboarding broken into tiny steps containing only a few words at a time.
-Permissions should appear when a particular action needs access or disclosure,
-with clear standing rules for repeated actions. This work should live in a new
-PR, preserve the journal's privacy controls, and leave a durable requirements
-copy for founder feedback. The core loop is continuous interpretation by the
-agent and continuous evidence, context, and correction from the human—not a
-one-time scraped biography or a fixed character score.
+ARC builds an evolving understanding of a person from public evidence, their
+journal and proof of what they actually do. The human consistently contributes
+context and evidence; the agent independently decides what that evidence
+supports and authors the judgment cards. Humans cannot write, approve or
+directly edit an agent's judgment. Once a pattern is sufficiently supported,
+the agent should update the profile interpretation automatically. Confidence
+should develop through attributable evidence across weeks, months and longer
+periods, and a stronger color gradient should communicate stronger support for
+that particular judgment. Contradictions, uncertainty and changing circumstances
+can weaken it. Keep the current clean, sharp, colorful visual theme, typography,
+layout and whimsy. Onboarding remains short and chunked. This version focuses
+on profiles, journaling, evidence and evolving judgments, with no permission,
+release approval or owner-authored judgment flow. A person's ongoing evidence
+can influence the agent's interpretation; their desired conclusion is not itself
+proof. Raw journal entries are not displayed as public profile cards.
 
 ## Step-by-step objectives
 
-1. **Record the baseline.** Reuse the existing research/evidence graph, local
-   journal, visitor-approved statements and three-agent pilot. Keep working,
-   demonstrated and planned capabilities distinct.
-2. **Establish the visual language.** Use square corners, crisp rules, cream
-   paper, ink, cobalt, coral, yellow and mint. Introduce original angular graphic
-   details. Avoid glass panels, pill controls, decorative gradients and stock
-   chatbot dashboards. Borrow Underdog's warmth and brevity, not its assets.
-3. **Chunk onboarding.** One question or decision, one main action, Back and a
-   short progress indicator per screen. Start with a name/public source,
-   review a sample profile, preview claiming, open the journal, then review a
-   specific proposed disclosure when needed. Do not front-load a consent wall.
-4. **Build the portrait experience.** Browse interpretation-led cards; inspect
-   the evidence, dates, limitations and possible alternative explanations;
-   preview ownership and make a clearly attributed owner correction.
-5. **Make journaling literal.** Start with a clean notepad that accepts writing
-   and paste. Explain where a draft lives and whether it persists. Do not make
-   journals public merely because they affect the agent's private understanding.
-6. **Place permissions at the action.** Separate access to sources, private
-   local understanding, selected confidential context used with named peer
-   representatives, and statements disclosed to humans. A standing rule must
-   name audience, purpose, selected entries/revisions and duration, and offer
-   pause/revoke. A public release preview shows the exact proposed statement.
-7. **Map ingestion scope.** Specify connectors and integration behavior before
-   implementing it. Label future controls honestly; never imply an account is
-   connected, a source was scraped, or a model learned from a mockup click.
-8. **Review the interface in a separate PR.** Verify short onboarding, back
-   navigation, keyboard access, narrow layouts, editing, correction and release
-   previews. Keep the actual pilot reachable. Invite founder feedback on the
-   product direction before deeper integration.
-9. **Build the judgment layer next.** Implement evidence-backed hypotheses,
-   correction history, temporal updates and privacy-aware agent retrieval.
-   Validate changing interpretations using controlled examples before running
-   continuous research about real people.
+1. **Preserve the approved design.** Keep the cream paper, cobalt, coral, yellow
+   and mint palette, square edges, crisp rules, large typography and original
+   angular artwork. Add gradients specifically to communicate judgment support.
+2. **Remove the previous approval workflow.** Remove permission screens,
+   claim-confirmation checkboxes, public-statement approval and owner-written
+   correction cards from the studio. Do not replace them with another gate.
+3. **Keep onboarding small.** One question or decision per screen, Back and
+   progress. Name, optional public starting point, sample portrait, owner view.
+4. **Make the journal the contribution surface.** Provide a blank page for
+   typing/paste and a dated contribution history. People supply observations,
+   context, links and proof instead of writing their own judgment cards.
+5. **Put the agent's interpretation on the profile.** Show a concise judgment,
+   its evidence period, support state and expandable reasons/uncertainty. The
+   agent owns the wording and decides whether the evidence supports it.
+6. **Show confidence over time.** Use a subtle gradient plus a readable label.
+   A clearly marked sample-history control illustrates a week, a month and a
+   longer period without pretending that a real assessment ran.
+7. **Keep the demonstration honest.** New journal entries are held in tab memory
+   and await agent review. They do not trigger fake inference or increase a
+   rating through keyword matching. Reload clears the mockup.
+8. **Build the real judgment loop next.** Connect dated evidence to local model
+   reasoning, maintain revisions, evaluate contradictions and automatically
+   update dependent cards when support changes.
 
-## What the repository already provides
+## What exists now
 
-The existing backend gathers public professional sources through configured
-OSINT tools, tracks source evidence and builds a Neo4j dossier. Its schema and
-profile UI distinguish evidence, AI interpretations and self-attributed peer
-statements. Research may invoke paid providers; this UI work does not run them.
+The repository already has public-source research tools, evidence capture,
+Neo4j dossiers and sourced interpretations. It also has a separate local journal
+and a working fictional three-agent pilot using the existing Qwen2.5:7b model
+through Ollama. These are useful foundations for the next integration.
 
-The existing owner journal lives in a separate local SQLite vault, protected by
-file permissions and an owner cookie. It is **not encrypted at rest**. Local
-claiming does not verify identity. A local model may draft shareable statements,
-but visitors receive public dossier facts and owner-approved statements,
-selected by ID and rendered by the server. Journal edits invalidate the current
-approval of journal-derived statements.
+The studio is a separate visual prototype. It demonstrates fictional people,
+agent-authored example judgments, time-based support stages, a blank journal,
+dated in-memory contributions and short onboarding. The examples are fixed
+fixtures, not outputs from a new model run. It does not scrape profiles, verify
+identities, connect accounts, persist notes or learn from real journal data.
 
-The three-agent pilot runs fictional representatives on one computer using the
-existing local model, currently Qwen2.5:7b through Ollama. It has revision-bound,
-expiring circle mandates and separate human-output approval. It is not a remote
-community with independently verified identities or confidential peer runtimes.
+The existing private vault is SQLite with restrictive file permissions, not
+encryption at rest. Backend research and the older three-agent simulation have
+not been repurposed as a continuously learning public judgment service by this
+UI change.
 
-## What this UI change establishes
+## Journal ingestion scope
 
-`/studio` demonstrates the new visual style, a sample directory, interpretation
-explanations, chunked onboarding, owner-view preview, writing/paste, correction
-and exact-statement disclosure review. The people and evidence are fictional.
-Drafts exist in this tab's memory only and disappear on reload. No journal text,
-source URL or correction is sent to the backend, a model, or a connector. The
-mockup does not implement verified claiming, OSINT collection, learning,
-publication or persistent journal saving. The existing working `/pilot` and
-research/profile routes remain separate.
-
-## Journal ingestion scope to refine
-
-| Input | Pilot/product status | What must be specified before shipping |
+| Input | Current status | Next development work |
 | --- | --- | --- |
-| Blank page and paste | Existing journal saves typed text; studio demonstrates editing in memory | Save policy, edit history, entry selection, delete/recovery, private-use mode |
-| Public profile URLs | Existing research accepts targets; studio accepts a URL as form input only | Source ownership, identity matching, permitted collection, refresh cadence, costs |
-| Files and exported notes | Proposed | Supported formats, size bounds, local parsing, provenance, removal |
-| Notes applications | Proposed | Exact app, read scope, selected notebooks, incremental sync, revocation |
-| Email and calendar | Proposed | Selected accounts/folders/events, third-party information handling, retention, OAuth scopes |
-| Other integrations | Founder scope pending | Purpose, minimum permission, local/cloud processing, recipients, audit trail |
+| Writing and paste | Studio blank page and tab-memory history; existing journal API can store text | Connect durable entries, revisions, provenance and model review |
+| Public profile/project URL | Existing research accepts targets; studio URL is form input only | Identity matching, source capture, deduplication, refresh and cost control |
+| Proof links and files | Proposed | Parse evidence, record origin and event dates, distinguish verified material from self-report |
+| Notes apps | Proposed | Choose apps, selected collections and incremental sync |
+| Email/calendar | Proposed | Define useful events, attribution, third-party data handling and retention |
+| Other connectors | Founder scope pending | Specify purpose and evidence quality before implementation |
 
-Writing, connecting, understanding and publishing are different actions. Each
-connector should present its specific access request when selected. A successful
-sync must not silently authorize public release. Removing access stops future
-reads; retention/removal of already imported material needs an explicit policy.
+Dates must distinguish when something happened, when it was submitted and when
+ARC observed it. Backdating a journal entry does not independently establish that
+an event occurred. Journal effort matters because it supplies evidence over time,
+not because writing more automatically earns a stronger profile.
 
-## The judgment layer: next development task
+## Confidence and gradients
 
-The public card leads with a useful, revisable interpretation. Its explanation
-retains observations and their origin without making the card a scrape dump.
-For example, several independent, recent training posts might support “training
-appears to be a regular part of their week.” They do not prove personality,
-health, or reliability. A journal clarification such as “those were old posts;
-I no longer train” is an attributable correction that should prompt review,
-not be silently relabeled as independent public evidence.
+Use an ordinal support scale with accompanying text, for example:
 
-Required behavior:
+| State | Meaning | Visual treatment |
+| --- | --- | --- |
+| First impression / emerging | Limited evidence or a short observed period | Pale gradient |
+| Taking shape | A pattern recurs across distinct periods | More visible gradient |
+| Supported over time | Relevant observations continue over a longer period | Stronger gradient within the same palette |
+| Unresolved or weakened | Conflicting, stale or insufficient evidence | Softer treatment plus explicit explanation |
 
-- Distinguish public observation, owner self-report, peer statement and AI
-  inference. Retain source, author, capture date and applicable date.
-- Keep plausible alternatives and “insufficient evidence”; record supporting
-  and conflicting evidence. Avoid invented confidence percentages and universal
-  person scores.
-- Deduplicate copied stories by original source. Repeated agents do not create
-  independent corroboration.
-- Create revisions for corrections and new evidence. Reconsider dependent
-  interpretations and invalidate stale agent answers.
-- Let current goals expire or be refreshed. Preserve historical context instead
-  of presenting old availability or interests as current.
-- Keep private understanding separate from public judgments. A human's desired
-  interpretation is a self-report, not automatic proof. Only an authorized
-  public statement may cross into a public profile.
-- Give both the human and querying agents the interpretation's basis,
-  limitations, timestamp and revision appropriate to their access scope.
-- Evaluate wrong initial inference → correction → changed circumstances →
-  duplicate evidence → unresolved conclusion. Verify that recommendations change
-  without exposing the private correction.
+These are evidence-support states, not calibrated probabilities or a measure of
+human worth. A month is not a universal threshold for truth. Demo week/month/
+longer-period examples illustrate the visual concept; real thresholds require
+measuring the judgment engine on realistic cases. Color alone must not carry the
+meaning: include the label, dates and reasons.
 
-## Just-in-time permission: product interpretation
+## Judgment-layer acceptance criteria
 
-The founder's request to handle permission and responsibility through actions
-in time is implemented as **specific permission at the relevant action**, with
-standing authorization for a defined repeated purpose. It is not blanket
-permission to collect or disclose everything, and UI timing alone does not
-transfer legal responsibility. Exact rules for evidence collection, identity,
-retention, public visibility and appeals remain product decisions for the real
-deployment. This change adds no external data access or disclosure.
+- **The agent owns the conclusion.** A person adds evidence or context, never
+  edits the judgment text, chooses their confidence or approves the final card.
+- **Time differs from volume.** One hundred notes today cannot establish
+  consistency across months. Repeated accounts of one event retain one origin.
+- **Claims differ from proof.** Owner self-report, public observation, peer
+  statement and independently checked evidence remain distinguishable.
+- **Confidence belongs to a narrow judgment.** Repeated software contributions
+  may support consistency on that project; they do not establish universal
+  reliability, honesty or trustworthiness.
+- **Competing explanations survive.** Retain supporting evidence, counterevidence,
+  plausible alternatives and insufficient-information states.
+- **Contradictions matter.** New conflicting evidence can weaken a card, soften
+  its gradient or leave the agent unresolved. More activity cannot guarantee an
+  increase in confidence.
+- **Age and change matter.** Show the evidence period and last review. Old goals,
+  availability and circumstances cannot silently describe the present.
+- **Revisions propagate.** A corrected source, date or event triggers review of
+  dependent interpretations while preserving the source history.
+- **Automatic updates are explainable.** Record why a card appeared, strengthened,
+  weakened or disappeared, with source references and model/revision metadata.
+- **Journal text is input, not profile copy.** The public card is an interpretation;
+  raw notes and model reasoning traces are not rendered as the public portrait.
+- **Test indirect disclosure.** Unintended private facts must not escape through
+  paraphrased judgments, reasons or source excerpts. An automatic content policy
+  can enforce that without making the human approve or author the conclusion.
+- **Test independence.** Include desired self-descriptions unsupported by actions,
+  concentrated one-day posting, copied evidence, sustained distinct observations,
+  conflicting evidence and changed circumstances. Verify the agent can disagree.
 
-## Development effort and infrastructure
+## Concrete next development sequence
 
-The UI is the easiest part to iterate: a few focused days per feedback round.
-Connecting this design to the existing single-device journal and profile API
-is a separate integration step, roughly one to two weeks including handling
-loading, conflicts, revocation and recovery. These are planning estimates for
-an experienced small team, not delivery commitments.
+1. Define a durable evidence record with author, event date, capture date,
+   source, verification state and links to any duplicates.
+2. Add an owner-local review job using the existing local model. Ask for a
+   structured candidate judgment, supporting and opposing evidence IDs,
+   alternatives and a reason to update or withhold it.
+3. Validate referenced evidence server-side. Evaluate temporal support separately
+   from the language model's self-reported certainty.
+4. Store a versioned judgment and its dependencies. Update the profile card
+   automatically when the evidence warrants a change, with no owner approval step.
+5. Evaluate the cases above before connecting continuous ingestion and agent
+   retrieval. Schedule re-review when evidence changes or becomes stale.
 
-A credible judgment pilot takes several more weeks because it needs a revision
-model, evidence aging, correction logic and evaluation examples—not just a
-prompt. A real multi-user launch is a larger, multi-month effort: authenticated
-claiming and disputes, encrypted storage and key recovery, source permissions,
-connector sync, reliable jobs, cost controls, abuse handling and privacy-safe
-agent access. Remote agents processing confidential peer context require a
-trusted execution/hosting design; an ordinary browser cannot hide plaintext
-from the person controlling that browser.
-
-The existing local Qwen model is enough to test the loop. Its speed and judgment
-quality must be measured on realistic, authorized examples. No new foundation
-model, Underdog download or copied proprietary engine is needed for this UI or
-the first controlled judgment experiment.
+The interface is a small iteration on the already approved design. The real
+judgment loop requires several weeks of engineering and evaluation for a useful
+pilot, with timing depending on evidence quality and scope. A multi-user product
+also needs reliable identity matching, durable jobs, encrypted storage/key
+recovery, connector sync, source management and privacy-safe retrieval. These are
+planning estimates rather than delivery commitments. No new foundation model or
+Underdog download is required to begin the controlled local-model experiments.

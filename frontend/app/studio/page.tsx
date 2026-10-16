@@ -3,7 +3,7 @@ import { ArcStudio } from "@/components/arc-studio";
 
 export const metadata: Metadata = {
   title: "ARC — A little more human",
-  description: "An interactive, fictional preview of ARC profiles, a private journal and deliberate sharing.",
+  description: "An interactive, fictional preview of ARC profiles, dated journals and evolving agent judgments.",
 };
 
 export default function StudioPage() {

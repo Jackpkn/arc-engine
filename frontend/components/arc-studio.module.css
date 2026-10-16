@@ -43,8 +43,8 @@
 .heroCopy { padding: 46px 42px 38px 0; }
 .eyebrow { display: flex; align-items: center; gap: 9px; font-family: "Courier New", monospace; font-size: 9px; letter-spacing: .1em; line-height: 1.8; font-weight: 600; }
 .tinySquare { display: inline-block; width: 6px; height: 6px; background: var(--blue); flex-shrink: 0; }
-.hero h1, .onboardContent h1, .ownerHero h1, .journalHeader h1, .reviewHeader h1 { font-size: clamp(59px, 6.6vw, 100px); font-weight: 600; line-height: .96; letter-spacing: -.065em; margin: 23px 0 0; }
-.hero h1 em, .onboardContent h1 em, .ownerHero h1 em, .journalHeader h1 em, .reviewHeader h1 em { font-family: Georgia, "Times New Roman", serif; font-weight: 400; letter-spacing: -.07em; }
+.hero h1, .onboardContent h1, .ownerHero h1, .journalHeader h1{ font-size: clamp(59px, 6.6vw, 100px); font-weight: 600; line-height: .96; letter-spacing: -.065em; margin: 23px 0 0; }
+.hero h1 em, .onboardContent h1 em, .ownerHero h1 em, .journalHeader h1 em{ font-family: Georgia, "Times New Roman", serif; font-weight: 400; letter-spacing: -.07em; }
 .heroBottom { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 31px; gap: 20px; }
 .heroBottom p { font-size: 12px; line-height: 1.8; color: #62685f; }
 .squareArrow { border: 1px solid var(--ink); width: 43px; height: 43px; display: flex; justify-content: center; align-items: center; flex-shrink: 0; transition: background .16s; }
@@ -132,8 +132,6 @@
 .claimSummary strong { font-size: 16px; font-weight: 500; }
 .claimSummary p { margin-top: 6px; font-family: "Courier New", monospace; font-size: 9px; color: #737a6c; }
 .claimArrow { margin-left: auto; font-size: 35px; }
-.checkboxLabel { display: flex; align-items: flex-start; gap: 12px; margin: 24px 0; font-size: 13px; line-height: 1.7; color: #575f53; cursor: pointer; }
-.checkboxLabel input { margin-top: 4px; accent-color: var(--blue); width: 14px; height: 14px; flex-shrink: 0; }
 .ownerHero { display: grid; grid-template-columns: 1.3fr 1fr .65fr; align-items: center; gap: 35px; padding: 44px 0 35px; border-bottom: 1px solid var(--ink); }
 .ownerHero h1 { margin-top: 18px; }
 .ownerHero > .profileArt { margin: 0; height: 230px; }
@@ -147,17 +145,8 @@
 .portraitTitle { font-size: 53px; line-height: .98; font-weight: 500; letter-spacing: -.055em; margin: 17px 0; }
 .ownerPortrait > p { font-size: 12px; line-height: 1.9; color: #686f62; max-width: 420px; }
 .ownerPortrait > .textButton { margin-top: 21px; }
-.correctionPanel { border-left: 1px solid var(--ink); padding: 28px 0 37px 38px; }
-.correctionPanel > h2 { font-size: 36px; line-height: 1.05; letter-spacing: -.05em; font-weight: 500; margin: 14px 0 23px; }
-.segmented { display: inline-flex; border: 1px solid var(--ink); }
-.segmented button { padding: 10px 14px; font-size: 10px; }
-.segmented button + button { border-left: 1px solid var(--ink); }
-.segmented .segmentActive { background: var(--ink); color: var(--paper); }
 .textarea { display: block; width: 100%; border: 1px solid var(--rule); background: #faf7f0; padding: 15px; font-size: 12px; line-height: 1.9; color: var(--ink); resize: vertical; }
 .textarea::placeholder { color: #909788; }
-.correctionOutput, .releaseOutput { padding: 22px; margin-top: 26px; background: var(--mint); border: 1px solid var(--ink); }
-.releaseOutput { background: var(--yellow); }
-.correctionOutput p, .releaseOutput p { font-size: 14px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 12px; }
 .connectors { margin-top: 26px; border: 1px solid var(--rule); padding: 20px 23px; }
 .connectors summary { display: flex; justify-content: space-between; gap: 12px; font-size: 12px; }
 .connectors summary > span { display: flex; align-items: center; gap: 12px; }
@@ -189,40 +178,6 @@
 .journalAsideBottom p { font-size: 11px; line-height: 1.9; margin-bottom: 19px; }
 .journalAsideBottom .textButton { border-bottom: 1px solid var(--ink); width: 100%; justify-content: space-between; padding-bottom: 10px; font-weight: 600; }
 .journalAsideBottom > span { display: block; font-family: "Courier New", monospace; font-size: 8px; line-height: 1.8; margin-top: 10px; }
-.reviewBack { display: flex; justify-content: space-between; align-items: center; gap: 20px; margin-top: 26px; }
-.reviewBack > span { font-family: "Courier New", monospace; font-size: 8px; color: #797f72; }
-.reviewHeader { position: relative; padding: 33px 0 35px; border-bottom: 1px solid var(--ink); }
-.reviewHeader h1 { font-size: 75px; }
-.reviewHeader > p:last-child { position: absolute; bottom: 39px; right: 0; width: 290px; font-size: 11px; line-height: 1.9; color: #737a6b; }
-.reviewGrid { display: grid; grid-template-columns: .85fr 1.7fr; min-height: 500px; border-bottom: 1px solid var(--ink); }
-.permissionNav { border-right: 1px solid var(--ink); padding: 26px 27px 30px 0; }
-.permissionNav > button { display: flex; align-items: center; gap: 13px; width: 100%; text-align: left; padding: 20px 16px; border: 1px solid var(--rule); margin-bottom: 11px; }
-.permissionNav > button > span { font-family: "Courier New", monospace; font-size: 9px; color: #727a68; align-self: flex-start; padding-top: 2px; }
-.permissionNav > button strong { display: block; font-size: 12px; font-weight: 500; }
-.permissionNav > button small { display: block; margin-top: 6px; font-size: 9px; color: #77816f; }
-.permissionNav > button > svg { margin-left: auto; flex-shrink: 0; }
-.permissionNav .permissionActive { background: var(--blue); color: var(--paper); border-color: var(--blue); }
-.permissionNav .permissionActive > span, .permissionNav .permissionActive small { color: #bbc8ff; }
-.permissionFoot { padding: 29px 17px 0; color: #797f70; }
-.permissionFoot p { margin-top: 13px; font-size: 10px; line-height: 1.9; }
-.permissionPanel { padding: 34px 0 37px 39px; }
-.permissionPanel > h2 { font-size: 35px; letter-spacing: -.05em; font-weight: 500; line-height: 1.05; margin: 15px 0 28px; }
-.permissionPanel > .button { margin-top: 28px; }
-.permissionPanel > .fieldLabel { margin-top: 0; }
-.selectedEntry { border: 1px solid var(--rule); margin-bottom: 24px; }
-.selectedEntry summary { padding: 15px; display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 10px; }
-.selectedEntry summary > span { display: flex; align-items: center; gap: 8px; }
-.selectedEntry > p { border-top: 1px solid var(--rule); padding: 20px; font-family: Georgia, serif; font-size: 15px; line-height: 1.8; white-space: pre-wrap; overflow-wrap: anywhere; }
-.scopeGrid { display: grid; grid-template-columns: 1fr 1fr 1fr; border: 1px solid var(--rule); }
-.scopeGrid > div { padding: 15px; border-right: 1px solid var(--rule); }
-.scopeGrid > div:last-child { border-right: 0; }
-.scopeGrid dt { font-family: "Courier New", monospace; font-size: 8px; color: #757d6b; margin-bottom: 10px; }
-.scopeGrid dd { font-size: 10px; line-height: 1.8; }
-.permissionConfirmation { background: var(--yellow); border: 1px solid var(--ink); padding: 23px; margin-top: 27px; }
-.permissionConfirmation h3 { font-size: 17px; line-height: 1.4; font-weight: 500; letter-spacing: -.025em; }
-.permissionConfirmation > p { font-size: 10px; line-height: 1.9; margin-top: 15px; color: #5d6635; }
-.permissionConfirmation blockquote { border-top: 1px solid #aeb96a; border-bottom: 1px solid #aeb96a; padding: 20px 0; margin-top: 18px; font-family: Georgia, serif; font-size: 21px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
-.permissionConfirmation .formActions { margin-top: 20px; }
 .profileDrawer { border: 0; border-left: 1px solid var(--ink); margin: 0 0 0 auto; height: 100dvh; min-height: 100dvh; max-height: 100dvh; width: min(620px, 100%); max-width: 100%; padding: 0; overflow: auto; }
 .profileDrawer::backdrop { background: #1c211f75; }
 .drawerContent { min-height: 100%; padding: 0 35px 34px; }
@@ -261,6 +216,70 @@
 .skipLink { position: fixed; top: -100px; left: 15px; z-index: 100; padding: 15px; background: var(--yellow); color: var(--ink); border: 1px solid var(--ink); }
 .skipLink:focus { top: 15px; }
 .visuallyHidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+.historyControl { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin: 7px 0 12px; }
+.historyControl > span { font-family: "Courier New", monospace; font-size: 8px; letter-spacing: .08em; }
+.historyControl > div { display: flex; border: 1px solid var(--ink); }
+.historyControl button { border-right: 1px solid var(--ink); padding: 9px 12px; font-size: 10px; }
+.historyControl button:last-child { border-right: 0; }
+.historyControl .historyActive { background: var(--blue); color: var(--paper); }
+.historyDisclaimer { font-family: "Courier New", monospace; font-size: 9px !important; line-height: 1.8 !important; margin-bottom: 21px; color: #747c6c; }
+.judgmentCard { border: 1px solid var(--ink); padding: 23px; margin-top: 16px; }
+.judgmentCard[data-stage="Emerging"] { background: linear-gradient(115deg, #f5f0e6 12%, #e8ece1 100%); }
+.judgmentCard[data-stage="Taking shape"] { background: linear-gradient(115deg, #eef0e5 0%, #c6e6d6 72%, #c4d7e8 100%); }
+.judgmentCard[data-stage="Well supported"] { background: linear-gradient(115deg, #dfe9dc 0%, #a3cfca 45%, #9cafe8 100%); }
+.judgmentCardTop { display: flex; justify-content: space-between; align-items: center; gap: 15px; font-family: "Courier New", monospace; font-size: 8px; line-height: 1.6; }
+.judgmentCardTop > span { color: #626e60; }
+.judgmentCardTop > strong { font-weight: 600; color: #1737a7; white-space: nowrap; }
+.judgmentCard h3 { font-size: 36px; line-height: 1.04; font-weight: 500; letter-spacing: -.05em; margin-top: 23px; max-width: 350px; }
+.judgmentCard > p { font-size: 11px; line-height: 1.9; margin-top: 15px; color: #596958; }
+.judgmentCardFoot { display: flex; justify-content: space-between; gap: 15px; font-family: "Courier New", monospace; font-size: 8px; line-height: 1.8; border-top: 1px solid #a8b5a3; padding-top: 14px; margin-top: 22px; }
+.historyPanel { border-left: 1px solid var(--ink); padding: 28px 0 37px 38px; }
+.historyPanel > h2 { font-size: 36px; line-height: 1.05; letter-spacing: -.05em; font-weight: 500; margin: 14px 0 24px; }
+.historyPanel > h2 em { font-family: Georgia, serif; font-weight: 400; }
+.historyStats { display: flex; border-top: 1px solid var(--rule); border-bottom: 1px solid var(--rule); }
+.historyStats > div { display: flex; align-items: baseline; gap: 10px; width: 50%; padding: 19px 0; }
+.historyStats > div + div { border-left: 1px solid var(--rule); padding-left: 20px; }
+.historyStats strong { font-size: 42px; font-weight: 500; line-height: 1; letter-spacing: -.06em; }
+.historyStats span { font-family: "Courier New", monospace; font-size: 7px; max-width: 60px; line-height: 1.8; color: #6e7865; }
+.historyDate { font-family: "Courier New", monospace; font-size: 8px; color: #737e69; margin: 17px 0 23px; }
+.historyTimeline { list-style: none; padding: 0; margin: 0; }
+.historyTimeline li { display: flex; position: relative; gap: 16px; padding: 0 0 23px; }
+.historyTimeline li:not(:last-child)::before { content: ""; width: 1px; background: var(--rule); position: absolute; top: 8px; bottom: 0; left: 4px; }
+.timelineMark { width: 9px; height: 9px; border: 1px solid var(--blue); background: var(--blue); flex-shrink: 0; margin-top: 2px; position: relative; }
+.historyTimeline li[data-kind="gap"] .timelineMark { background: var(--paper); border: 1px dashed #9ba28f; }
+.historyTimeline li[data-kind="counterexample"] .timelineMark { background: var(--coral); border-color: var(--coral); transform: rotate(45deg); }
+.historyTimeline time { display: block; font-family: "Courier New", monospace; font-size: 8px; color: #7c8472; }
+.historyTimeline p { font-size: 10px; line-height: 1.8; margin-top: 5px; }
+.historyTimeline li[data-kind="gap"] p { color: #7b8471; }
+.historyNote { border-top: 1px solid var(--rule); padding-top: 19px; font-size: 10px; line-height: 1.9; color: #6e7863; margin-bottom: 24px; }
+.pendingReview { display: flex; align-items: center; gap: 15px; margin-top: 26px; border-top: 1px solid var(--rule); padding-top: 20px; }
+.pendingReview > span { font-size: 35px; line-height: 1; color: var(--blue); letter-spacing: -.06em; }
+.pendingReview strong { font-size: 11px; font-weight: 500; }
+.pendingReview p { font-size: 9px; line-height: 1.8; color: #7b8272; margin-top: 5px; }
+.entryFields { display: grid; grid-template-columns: .7fr 1.3fr; gap: 22px; padding: 0 25px 23px; }
+.entryFields label { display: block; font-size: 9px; line-height: 1.8; margin-bottom: 8px; }
+.entryFields label > span { font-family: "Courier New", monospace; font-size: 8px; color: #7d8573; }
+.entryFields input { width: 100%; min-height: 38px; padding: 9px 0; border: 0; border-bottom: 1px solid var(--rule); background: transparent; font-size: 11px; color: var(--ink); }
+.entryFields input::placeholder { color: #a1a796; }
+.entryLedger { margin-top: 25px; }
+.entryLedger > details { border: 1px solid var(--rule); margin-bottom: 10px; }
+.entryLedger summary { display: flex; gap: 20px; align-items: center; padding: 18px 20px; font-size: 10px; }
+.entryLedger summary > time { font-family: "Courier New", monospace; font-size: 9px; }
+.entryLedger summary > span { margin-left: auto; color: #7c8470; }
+.entryLedger details > p { border-top: 1px solid var(--rule); padding: 20px; white-space: pre-wrap; overflow-wrap: anywhere; font-family: Georgia, serif; font-size: 16px; line-height: 1.8; }
+.entryProof { padding: 0 20px 20px; color: #6f7963; font-family: "Courier New", monospace; font-size: 8px; line-height: 1.8; }
+.entryProof > span { display: block; overflow-wrap: anywhere; color: var(--ink); margin-top: 5px; }
+.drawerConfidence { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin-top: 20px; font-family: "Courier New", monospace; font-size: 8px; line-height: 1.8; }
+.drawerConfidence > strong { color: var(--blue); font-weight: 600; }
+.drawerConfidence > span:last-child { width: 100%; color: #75816b; }
+.confidenceSwatch { width: 37px; height: 12px; border: 1px solid #a8b5a3; background: linear-gradient(90deg, #f5f0e6, #e8ece1); }
+.confidenceSwatch[data-stage="Taking shape"] { background: linear-gradient(90deg, #eef0e5, #c6e6d6, #c4d7e8); }
+.confidenceSwatch[data-stage="Well supported"] { background: linear-gradient(90deg, #dfe9dc, #a3cfca, #9cafe8); }
+.confidenceLegend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 24px; }
+.confidenceLegend > span { display: inline-flex; align-items: center; gap: 7px; font-family: "Courier New", monospace; font-size: 8px; }
+.confidenceLegend .confidenceSwatch { display: inline-block; width: 24px; height: 9px; }
+
 @media (min-width: 1500px) { .header, .editionBar, .footer { padding-left: max(4.2%, calc((100vw - 1410px) / 2)); padding-right: max(4.2%, calc((100vw - 1410px) / 2)); margin-left: 0; margin-right: 0; } }
 @media (max-width: 1000px) {
   .header { gap: 28px; }
@@ -282,21 +301,12 @@
   .onboardContent { padding-right: 0; }
   .ownerHero { grid-template-columns: 1.2fr 1fr; }
   .ownerAnnotation { display: none; }
-  .correctionPanel { padding-left: 27px; }
   .ownerPortrait { padding-right: 27px; }
   .portraitTitle { font-size: 44px; }
   .connectorGrid { grid-template-columns: repeat(2, 1fr); }
   .journalLayout { grid-template-columns: 1.7fr 1fr; }
   .journalAside { padding: 28px 23px; }
   .editorBottom { align-items: flex-start; flex-direction: column; }
-  .reviewGrid { grid-template-columns: 1fr 1.7fr; }
-  .permissionNav { padding-right: 20px; }
-  .permissionNav > button { gap: 10px; padding: 19px 12px; }
-  .permissionPanel { padding-left: 25px; }
-  .scopeGrid { grid-template-columns: 1fr; }
-  .scopeGrid > div { border-right: 0; border-bottom: 1px solid var(--rule); padding: 11px 15px; }
-  .scopeGrid > div:last-child { border-bottom: 0; }
-  .scopeGrid dt { margin-bottom: 3px; }
   .compactArt { height: 90px; margin: 0; }
 }
 @media (max-width: 700px) {
@@ -363,8 +373,6 @@
   .ownerPortrait { padding-right: 0; }
   .portraitTitle { font-size: 50px; }
   .ownerPortrait > .sectionHeading h2 { max-width: none; }
-  .correctionPanel { padding: 27px 0 31px; border-left: 0; border-top: 1px solid var(--ink); }
-  .correctionPanel > h2 { font-size: 38px; }
   .connectorGrid { grid-template-columns: 1fr 1fr; gap: 8px; }
   .connectorGrid button { padding: 12px 10px; }
   .connectors { padding: 18px 16px; }
@@ -382,18 +390,6 @@
   .asideNumber { position: absolute; top: 23px; right: 23px; }
   .journalAside h2 { font-size: 43px; margin-top: 0; }
   .journalAsideBottom { padding-top: 22px; }
-  .reviewBack { align-items: flex-start; }
-  .reviewBack > span { font-size: 7px; max-width: 130px; text-align: right; line-height: 1.7; }
-  .reviewHeader { padding-top: 30px; padding-bottom: 28px; }
-  .reviewHeader h1 { font-size: 65px; }
-  .reviewHeader > p:last-child { position: static; width: auto; max-width: 300px; margin-top: 23px; font-size: 10px; }
-  .reviewGrid { display: block; }
-  .permissionNav { border-right: 0; border-bottom: 1px solid var(--ink); padding: 20px 0 15px; }
-  .permissionNav > button { margin-bottom: 7px; padding: 14px 15px; }
-  .permissionFoot { display: none; }
-  .permissionPanel { padding: 28px 0; }
-  .permissionPanel > h2 { font-size: 33px; }
-  .permissionConfirmation { padding: 20px; }
   .drawerContent { padding: 0 23px 25px; }
   .drawerHeader { min-height: 64px; }
   .drawerName h2 { font-size: 36px; }
@@ -404,3 +400,6 @@
   .drawerClaim h3 { font-size: 27px; }
 }
 @media (prefers-reduced-motion: reduce) { .studio *, .studio *::before, .studio *::after { transition: none !important; scroll-behavior: auto !important; } }
+
+@media (max-width: 1000px) { .historyPanel { padding-left: 27px; } .judgmentCard { padding: 20px; } .historyControl { align-items: flex-start; } }
+@media (max-width: 700px) { .historyPanel { border-left: 0; border-top: 1px solid var(--ink); padding: 28px 0; } .historyControl { gap: 16px; } .judgmentCard h3 { font-size: 35px; } .judgmentCardFoot { font-size: 7px; } .entryFields { grid-template-columns: 1fr; gap: 18px; padding: 0 18px 23px; } .entryLedger summary { padding: 16px; gap: 13px; } .entryLedger summary > span { font-size: 8px; } }

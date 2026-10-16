@@ -3,8 +3,10 @@
 ## Product studio — October 15, 2026
 
 Open `/studio` for the sharp, colorful product mockup: interpretation-led
-fictional profiles, short onboarding steps, a blank journal and disclosure
-review. Its drafts stay in tab memory and disappear on reload; it makes no
+fictional profiles, short onboarding steps, a blank journal and time-based
+judgment confidence. Humans contribute evidence; the agent authors the judgment.
+There are no permission, approval or owner-written judgment flows in this studio.
+Its drafts stay in tab memory and disappear on reload; it makes no
 research, model, connector or journal API calls. The working local-agent
 simulation remains at `/pilot`.
 
