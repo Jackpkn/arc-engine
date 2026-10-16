@@ -56,7 +56,7 @@ class HistoryTests(unittest.IsolatedAsyncioTestCase):
                 evidence = pad.raw_evidence
             self.assertFalse(main.runs)
             async with main.lifespan(main.app), httpx.AsyncClient(transport=httpx.ASGITransport(app=main.app), base_url="http://offline") as client:
-                with patch("backend.main.run_osint_orchestrator", side_effect=AssertionError("No paid research")), patch("backend.conversation.ClaudeSDKClient", side_effect=AssertionError("No paid chat")):
+                with patch("backend.main.run_workspace_research", side_effect=AssertionError("No paid research")), patch("backend.conversation.ClaudeSDKClient", side_effect=AssertionError("No paid chat")):
                     history = (await client.get("/api/investigations")).json()["investigations"]
                     self.assertEqual(history[0]["session_id"], "saved")
                     self.assertFalse(history[0]["active"])
