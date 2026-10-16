@@ -5,6 +5,7 @@ import { Terminal, Check, AlertTriangle, LoaderCircle, Pause, ChevronRight, Arro
 import type { ArcEvent, InvestigationState } from "@/lib/investigation";
 import { activityLabel, provider, toolLabel, toolResults } from "@/lib/presentation";
 import { AgentResponse } from "./agent-response";
+import { ResearchProgress } from "./research-progress";
 import { HumanReview } from "./review-panel";
 
 function ToolCard({ event, result, state, onEvidence }: {
@@ -69,6 +70,7 @@ export function ToolStream({ state, visible, onEvidence, answer }: { state: Inve
       {!logs.length && <div className="py-20 text-center"><Terminal size={28} className="mx-auto mb-4 text-zinc-700" />
         <p className="text-2xl font-medium tracking-tight text-zinc-200">Who would you like to understand?</p>
         <p className="mx-auto mt-4 max-w-sm text-sm leading-relaxed text-zinc-500">Start with a name and context, or a public profile. We’ll follow the sources together.</p></div>}
+      <ResearchProgress logs={logs} />
       {logs.map((event, index) => {
         if (event.type === "investigation.started" || event.type === "user.message") return <div key={index} className="flex justify-end py-4"><p className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-tr-sm bg-white/6 px-4 py-3 text-sm leading-relaxed text-zinc-200">{event.text || event.target}</p></div>;
         if (event.type === "conversation.failed" || event.type === "conversation.cancelled") return <p key={index} role="alert" className="py-2 text-xs text-amber-300">{event.error || event.text}</p>;
