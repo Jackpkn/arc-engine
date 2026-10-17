@@ -1,11 +1,12 @@
 "use client";
 
-import { FileText, GitBranch, MessageSquare, Plus, RefreshCw, Users, PanelLeftClose } from "lucide-react";
+import { FileText, GitBranch, MessageSquare, Plus, RefreshCw, Users, PanelLeftClose, Database } from "lucide-react";
 import Link from "next/link";
 import type { InvestigationSummary } from "@/lib/use-investigation";
 
 export const views = [
   { id: "conversation", title: "Conversation", icon: MessageSquare },
+  { id: "evidence", title: "Evidence", icon: Database },
   { id: "dossier", title: "Dossier", icon: FileText },
   { id: "graph", title: "Graph", icon: GitBranch },
   { id: "peers", title: "Peer claims", icon: Users },

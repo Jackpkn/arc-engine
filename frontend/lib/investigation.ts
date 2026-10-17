@@ -93,7 +93,8 @@ export type InvestigationState = {
   target: string;
   model: string;
   status: Status;
-  phase: "research" | "conversation";
+  phase: "research" | "conversation" | "source";
+  collectionMode: "research" | "sources";
   connection: "connected" | "reconnecting";
   error: string;
   logs: ArcEvent[];
@@ -109,6 +110,7 @@ export type InvestigationState = {
 
 export const initialState: InvestigationState = {
   sessionId: "", target: "", model: "", status: "idle", phase: "research", connection: "connected",
+  collectionMode: "research",
   error: "", logs: [], graph: { nodes: [], links: [] }, prompts: [], judgment: null,
   committed: false, cost: 0, usageUnknown: false, cacheRead: 0, portrait: [],
 };
@@ -124,6 +126,15 @@ export function applyEvent(state: InvestigationState, event: ArcEvent): Investig
   }
   const next = { ...state, logs };
   switch (event.type) {
+    case "case.ready":
+      return { ...next, status: "complete", collectionMode: "sources" };
+    case "source.started":
+      return { ...next, status: "running", phase: "source", error: "" };
+    case "source.complete":
+      return { ...next, status: "complete", phase: "source" };
+    case "source.failed":
+    case "source.cancelled":
+      return { ...next, status: event.type === "source.cancelled" ? "cancelled" : "failed", phase: "source", error: event.error || "Source lookup did not finish." };
     case "conversation.started":
       return { ...next, status: "running", phase: "conversation", error: "" };
     case "conversation.complete":
@@ -133,12 +144,13 @@ export function applyEvent(state: InvestigationState, event: ArcEvent): Investig
     case "conversation.failed":
       return { ...next, status: "failed", error: event.error || "Reply failed." };
     case "investigation.started":
-      return { ...next, status: "running", target: event.target || state.target,
+      return { ...next, status: "running", target: event.target || state.target, collectionMode: event.mode === "sources" ? "sources" : "research",
         graph: { nodes: [{ id: "root_target", title: event.target || state.target,
-          label: "Person", isDraft: true }], links: [] } };
+          label: event.mode === "sources" ? "ResearchTarget" : "Person", isDraft: true }], links: [] } };
     case "investigation.collecting":
       return { ...next, model: event.model || "", status: "running" };
     case "graph.draft_node": {
+      if (state.committed) return next;
       const id = event.id || event.evidence_id;
       if (!id || state.graph.nodes.some((node) => node.id === id)) return next;
       return { ...next, graph: {

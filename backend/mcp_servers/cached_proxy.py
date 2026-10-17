@@ -17,6 +17,7 @@ from fastmcp.exceptions import ToolError
 from backend.agent import upstream_registry, cache_namespace
 from backend.source_cache import CACHE_NOTE, CacheBlocked, SourceCache, cacheable, refresh_headers
 from backend.storage import database_path
+from backend.tool_outputs import normalize_output
 import json
 
 
@@ -53,6 +54,14 @@ class SourceCacheMiddleware(Middleware):
                     raise ToolError("Source did not return a completed result; do not repeat the provider call.")
                 payload = mt.CallToolResult(content=result.content, structuredContent=result.structured_content,
                                             isError=result.is_error).model_dump(mode="json", by_alias=True, exclude_none=True)
+                if self.namespace.startswith("robin:"):
+                    data = normalize_output(payload)
+                    if isinstance(data, str) and data.startswith("status: needs_domain\n"):
+                        raise ToolError("Robin needs the user's research domain/preset before searching. Ask for that choice; no search evidence was collected.")
+                    if (not isinstance(data, str)
+                            or not data.startswith(("status: ok\n", "status: no_results\n"))
+                            or name == "robin_scrape" and data.startswith("status: ok\n0 of ")):
+                        raise ToolError("Robin returned a setup, outage or failure response; no evidence was accepted. Inspect it before requesting fresh sources.")
                 if not cacheable(payload):
                     self.cache.fail(key, owner)
                     return result
@@ -72,7 +81,7 @@ class SourceCacheMiddleware(Middleware):
 
 def build_proxy(provider: str):
     servers, allowed = upstream_registry()
-    if provider not in {"osint", "firecrawl", "github"} or provider not in servers:
+    if provider not in {"osint", "firecrawl", "github", "robin"} or provider not in servers:
         raise ValueError("Source provider is not configured.")
     namespace = cache_namespace(provider, servers[provider])
     if provider == "osint" and os.getenv("ARC_CACHE_REFRESH_ID") and os.getenv("APIFY_API_TOKEN"):

@@ -101,6 +101,123 @@ encryption at rest**. Keep the API on loopback. Existing public-profile approval
 remains separate from the pilot's circle-specific mandate.
 
 
+## Evidence workbench — October 17, 2026
+
+Open **Evidence** in the workspace, or **Or start with free source lookups** from
+the new-investigation screen. Create a named evidence case without starting
+Claude, requiring paid credentials, or committing a Neo4j profile. Choose each
+free lookup explicitly. The regular Conversation workflow remains available for
+an authorized, budgeted model-assisted investigation.
+
+This adapts the useful workflow described in the supplied WebVetted investigation:
+saved lookups, on-demand expansion, source provenance, coverage and report reuse.
+The shared ChatGPT URL was blocked by a browser challenge; the attached findings
+and public WebVetted pages were read. Its reported single negative-control test
+and advertised source counts are not an accuracy or vendor-coverage benchmark.
+ARC does not claim equivalent paid-data coverage or a calibrated identity score.
+
+The shipped changes are:
+
+- **Explicit free collection:** web discovery/Google queries, Sherlock or Maigret,
+  certificate records, Crossref, public DNS and Internet Archive CDX. The catalog
+  shows local installation availability separately from actual lookup outcomes.
+  Lookups use the existing MCP source cache and the original source dates.
+- **Saved evidence ledger:** source arguments, original collection/retrieval
+  times, reuse, raw-output inspection, explicit source URLs with JSON field paths,
+  and links to the committed graph nodes that actually cite each record. Repeated
+  snapshots or different tools returning the same underlying source do not become
+  independent corroboration.
+  Selected professional fields are also displayed verbatim with payload paths
+  (for example DNS answers or publication titles), before opening raw JSON.
+- **Payload integrity:** new captures record a SHA-256 of compact, sorted-key,
+  UTF-8 JSON. The ledger recomputes it for inspection. Legacy records without a
+  capture-time digest are labeled; no retroactive integrity seal is invented.
+  Mismatched recorded digests are excluded from future model evidence. A checksum
+  protects payload consistency, not the truth of a source or external notarization.
+- **Actual coverage:** captured, failed, not-captured and unfinished tool attempts
+  are distinguished from unqueried tools. Counts include cache reads and describe
+  this case only. No "all sources checked" percentage or automatic credibility
+  rating is generated. Paid-source breadth is not inferred from configured keys.
+- **On-demand pivots:** an explicitly returned source URL can prefill a domain DNS
+  lookup. Nothing is fetched until the operator submits it. A hostname or matching
+  handle does not establish employment, ownership or personal identity.
+- **Snapshot comparison:** matching tool/argument records show payload changes and
+  added/removed explicit URLs. Fresh collection requires an explicit choice. A
+  changed payload (including a DNS TTL) is not a changed identity claim. No periodic
+  monitoring, arbitrary cache TTL or background refetching was enabled.
+- **Assessment separation:** additional source records do not rewrite the committed
+  profile or score, or appear as committed identity edges. The ledger identifies
+  records added since the assessment. A later authorized follow-up receives newly
+  captured evidence even when resuming its existing SDK session; cumulative usage
+  accounting and remaining-budget checks are preserved.
+- **Portable reports:** Evidence JSON includes source records and the latest
+  committed assessment; Markdown reports describe scope, provenance and outcomes.
+  Existing Maltego CSV export remains available after a graph commit. Export code
+  reads research evidence, not private journal storage or peer claims.
+
+Source requests have persistent request IDs. Duplicate submissions return the
+existing operation; a changed request cannot reuse the same ID. An interrupted
+operation is marked interrupted on recovery, never resumed. A failed/uncertain
+source-cache outcome is not silently retried. Only cataloged free tools can be
+called through this endpoint; clients cannot supply arbitrary commands, paid
+tool names, MCP servers or extra provider parameters.
+
+Relevant endpoints:
+
+```text
+GET  /api/sources/catalog
+POST /api/cases
+GET  /api/investigate/{session_id}/ledger
+POST /api/investigate/{session_id}/sources
+GET  /api/investigate/{session_id}/exports/report.json
+GET  /api/investigate/{session_id}/exports/report.md
+```
+
+Public DNS uses Google's documented JSON DoH endpoint and one selected record
+type. Resolver failure/truncation is an error; DNS answers are not person
+verification. CDX queries read a bounded archive index, with a caller-selected
+result limit, without fetching archived pages. Provider/library timeout and
+request defaults remain distinct from the application's evidence storage bound.
+Availability/rate limits can still cause failures; the UI reports those outcomes.
+
+Offline tests exercise the complete case → lookup → ledger → export → restart
+path, duplicate/changed request IDs, real MCP caching with intercepted source
+transport, interruption recovery, payload tampering, source failures, and resumed
+chat evidence/cost increments. No real Claude session or paid lookup is used in
+those tests.
+All 24 backend tests, frontend lint and production build passed. A real browser
+created an example.com verification case and collected a DNS answer through the
+production MCP/cache path, with no model call. The saved record and source receipt
+are retained locally; the archive adapter has offline protocol coverage, not a
+claimed successful live archive fetch.
+
+### Paid coverage options for later approval
+
+These are proposals, not installed integrations or permission to run lookups.
+The current Exa, Apify, Firecrawl and Claude settings/budgets were not expanded.
+
+| Option | What it would add | Required decision before implementation/live verification |
+| --- | --- | --- |
+| OSINT Industries | Authorized email/phone/account discovery beyond public username checks | Account plan, permitted use, retention terms, available endpoints, per-lookup/monthly allowance and a consented test identifier; actual account limits/credit behavior must be checked |
+| Have I Been Pwned | Breach-exposure metadata for consented identifiers or verified organizational domains | Subscription tier, API key, supported scope, authorization/domain verification where applicable, request allowance and an approved test; no credential/password corpus collection |
+| Existing Exa / Firecrawl / Apify | More extensive web retrieval and supported profile/post extraction | Resolve the pending Exa/Firecrawl allowances and approve each live verification/investigation; existing keys do not authorize spending |
+
+My order would be to measure discovery quality on consented examples first, then
+evaluate OSINT Industries for identifier breadth and HIBP for exposure metadata
+if those jobs are part of ARC's intended scope. Commercial address/associate
+data and facial identification are not implemented by these public-source tools.
+No new provider rates, account quotas or spending ceilings are assumed. A real
+accuracy/coverage comparison needs a consented test set with known ground truth;
+it cannot be concluded from a visually richer report.
+
+References reviewed October 17, 2026:
+[WebVetted Workbench](https://webvetted.com/workbench),
+[WebVetted username workflow](https://webvetted.com/detect/username),
+[Google Public DNS JSON API](https://developers.google.com/speed/public-dns/docs/doh/json),
+[Internet Archive CDX server](https://github.com/internetarchive/wayback/tree/master/wayback-cdx-server),
+[OSINT Industries API introduction](https://docs.osint.industries/reference/getting-started),
+[HIBP API and plan-specific access](https://haveibeenpwned.com/API/v3).
+
 ## Core profile workflow — October 15, 2026
 
 Open the existing [Pawan public dossier](http://localhost:3000/u/543e4074-d81b-4ec5-993d-d23c36794c83)
@@ -268,7 +385,9 @@ local request does not guarantee that its remote actor stops or avoids charges.
 
 ## Files
 
-- `backend/mcp_servers/osint_mcp.py`: the four custom tools in one FastMCP server.
+- `backend/mcp_servers/osint_mcp.py`: public-source tools in one FastMCP server.
+- `backend/osint_tools.py`: isolated Sherlock, Maigret and theHarvester adapters plus Google query links.
+- `backend/maltego.py`: offline CSV export of committed public graphs.
 - `backend/agent.py`: registry of real MCP integrations.
 - `backend/orchestrator.py`: stateful `ClaudeSDKClient`, native harvester, hooks, human input and budget handoff.
 - `backend/conversation.py`: evidence-only follow-up sessions and incremental cost accounting.
@@ -428,17 +547,128 @@ and [CLI reference](https://nextjs.org/docs/app/api-reference/cli/create-next-ap
 
 | Server | Tools / transport |
 | --- | --- |
-| ARC custom server | `search_identity_exa`, `scrape_linkedin_profile`, `scrape_linkedin_posts`, `inspect_github_developer_profile`; Streamable HTTP on port 8001 |
+| ARC custom server | Free web search, Sherlock/Maigret username leads, theHarvester crtsh records, Crossref publications, plus existing Exa, LinkedIn and GitHub tools; Streamable HTTP on port 8001 |
 | Firecrawl | `firecrawl_scrape`; SDK-managed `npx -y firecrawl-mcp` stdio process |
 | GitHub official | Allowlisted repository, commit, issue and PR reads; hosted read-only HTTP endpoint |
 | Neo4j official | `get-schema`, `read-cypher`; `python -m neo4j_mcp_server` stdio using the configured Aura database credentials |
+| Robin optional | Official Docker MCP, only `robin_search` and `robin_scrape`; no extra model tools, API keys or host file mounts |
 
-The SDK mounts OSINT, Firecrawl and GitHub through local FastMCP caching proxies.
+The SDK mounts OSINT, Firecrawl, GitHub and optional Robin through local FastMCP caching proxies.
 Their original upstream transports and tools remain as listed above; Neo4j stays
 direct and uncached. The proxy follows FastMCP's documented
 [proxy provider](https://gofastmcp.com/servers/providers/proxy) and
 [tool middleware](https://gofastmcp.com/servers/middleware) interfaces, checked
 against the installed FastMCP 4.1 API on October 15, 2026.
+
+## Free OSINT integrations — checked October 17, 2026
+
+ARC begins discovery with keyless DDGS metasearch. `search_public_web` accepts
+`auto` (library default), `brave`, `yahoo`, `duckduckgo`, or `google`; the latter
+executes Google queries including public professional dorks. Engine operator
+support and availability vary. A failure never silently falls back to paid Exa.
+Google links in Investigation details are generated locally; only a completed
+search tool call is evidence. No CAPTCHA bypass or paid search proxy is configured.
+
+| Integration | Use in ARC | Cost and scope |
+| --- | --- | --- |
+| DDGS | Public discovery and Google dork queries | No API key; engine rate limits/blocks still apply |
+| Sherlock | Check a sourced username on explicitly selected professional sites | Local CLI; matches are unverified leads |
+| Maigret | Alternative username checker, with site-name mapping | Local CLI; recursion, profile extraction and AI analysis disabled |
+| theHarvester | Public certificate hostnames for a sourced company/project domain | Only free `crtsh`; no email/breach collection, paid source or active scanning |
+| Crossref | Publication titles, authors, dates, affiliations and deposited ORCID links | Public REST API, no sign-up/key; namesakes must be disambiguated |
+| Robin | Optional public professional threat-intelligence searches and Tor page reads | Official container; only search/scrape, no extra LLM calls |
+| Maltego | Import ARC's public committed graph for visual analysis | Offline CSV bridge; no paid Maltego transforms/API integration |
+
+Sherlock and Maigret accept explicit `sites` from `GitHub`, `GitLab`, `BitBucket`,
+`Docker Hub`, `Hugging Face`, `Kaggle`, `PyPi`, `npm`. ARC maps the differing
+Maigret names internally. Use one checker when sufficient. A shared username,
+certificate hostname or author name never independently verifies an identity.
+Local CLI processes run in temporary working/config directories without inherited
+API keys. They retain upstream request/timeout defaults; no provider quotas are
+invented. Cancellation terminates the local process. The existing 500,000-byte
+evidence allowance also bounds CLI reports; oversized reports are refused whole.
+theHarvester must produce a completed crtsh execution in its JSONL receipt before
+ARC accepts hostnames. Blocked/partial/failed runs are not absence evidence.
+
+Free-source reads use ARC's durable source cache, keeping original collection
+dates and reuse annotations. No arbitrary TTL is added. Failed/uncertain calls
+remain blocked until an explicit fresh-source request. Robin setup/outage replies
+are rejected before caching or evidence capture; use explicit returned URLs, not
+session-local result IDs when scraping cached Robin search results.
+
+### Local installation
+
+These tools are isolated from ARC's Python dependencies in ignored `.arc/tools`
+and `.arc/bin`. They were installed and their help/report interfaces checked on
+October 17: Sherlock 0.16.2, Maigret 0.6.6, theHarvester 5.0.0 at official commit
+`49a38f8d33c32336bbf6a111ea723ea223116265`; ARC's lockfile resolves DDGS 9.16.0.
+theHarvester currently requires Python 3.14, so it uses a separate tool environment.
+To reproduce the local installations from the repository root:
+
+```bash
+uv sync --locked
+UV_TOOL_DIR="$PWD/.arc/tools" UV_TOOL_BIN_DIR="$PWD/.arc/bin" uv tool install sherlock-project==0.16.2
+UV_TOOL_DIR="$PWD/.arc/tools" UV_TOOL_BIN_DIR="$PWD/.arc/bin" uv tool install maigret==0.6.6
+UV_TOOL_DIR="$PWD/.arc/tools" UV_TOOL_BIN_DIR="$PWD/.arc/bin" uv tool install --python 3.14 'git+https://github.com/laramies/theHarvester.git@49a38f8d33c32336bbf6a111ea723ea223116265'
+docker pull apurvsg/robin@sha256:579aae11b9100078ecd0d700f4057117e3ded6f37a37d7dfdf773bfcceded5c0
+```
+
+ARC discovers `.arc/bin` automatically; PATH changes are unnecessary. Optional
+absolute executable overrides are `ARC_SHERLOCK_BIN`, `ARC_MAIGRET_BIN`, and
+`ARC_THEHARVESTER_BIN`. Keep secrets in the ignored `.env`. The supplied attachment
+was copied there with owner-only permissions; its existing budgets and provider
+keys were preserved. Free-source integration does not authorize a Claude session
+or expand any investigation budget.
+
+Set `ARC_ROBIN_ENABLED=1` to expose Robin to research agents. Docker must be running
+and the pinned official image downloaded first: ARC uses `--pull=never`, never mounts the
+host `.env`, and does not enable Robin's refine/filter/investigate/model tools.
+Tor bootstrap and engine availability can still delay or block a source call.
+Robin should be used only for an explicitly requested public professional
+threat-intelligence question, not routine identity profiling. This optional
+provider does not install or invoke a separate paid model.
+The local environment now enables it. The downloaded image digest is
+`sha256:579aae11b9100078ecd0d700f4057117e3ded6f37a37d7dfdf773bfcceded5c0`.
+
+### Availability and exports
+
+`GET /api/tools` reports installed local executables and integration modes without
+contacting providers. Investigation details shows local readiness and source
+activity. `GET /api/tools/google-dorks?subject=Public%20Person&domain=example.org`
+generates public-profile/PDF search links without executing them.
+
+After a graph commit, use **Download Maltego CSV** in Investigation details, or
+`GET /api/investigate/{session_id}/exports/maltego.csv`. In Maltego Desktop choose
+**Import Graph → Import a 3rd Party Table**. Map `source_id` and `target_id` to
+separate entities (Phrase is suitable for generic ARC nodes), titles to their
+display values, URLs/evidence states to properties, and `relationship`/`reason`
+to a link. Map `evidence_ids` as a provenance property. Rows with an empty target
+represent isolated nodes. Only the committed public graph is exported; journal
+notes, peer claims and uncommitted proposals are excluded. CSV formula-like
+values are escaped. Maltego licensing/transform access remains separate.
+
+Verification used no Claude, Exa, Apify, Firecrawl or paid source calls. Free live
+checks passed for DDGS metasearch (ten results at the library's default),
+Sherlock (one GitHub site), Maigret (one GitHub site),
+theHarvester (crtsh for example.com), and Crossref (publication metadata).
+Direct Google and DuckDuckGo requests did not yield usable results in this
+environment; this is a search-availability limitation, not proof of no matches.
+Robin's actual container also passed MCP tool discovery; no Robin search or scrape
+was performed. All 18 offline tests and frontend lint/production build passed.
+The offline suite covers subprocess credential isolation, literal argv, report
+parsing, failed-source handling, MCP tool wiring, Robin's allowlist, and public-only
+Maltego export. No complete Claude-driven investigation was launched.
+
+Official sources reviewed October 17, 2026:
+
+- [Sherlock source and CLI](https://github.com/sherlock-project/sherlock)
+- [Maigret source and reports](https://github.com/soxoj/maigret)
+- [theHarvester source and passive sources](https://github.com/laramies/theHarvester)
+- [Robin MCP transport and tools](https://github.com/apurvsinghgautam/robin)
+- [DDGS backends and defaults](https://github.com/deedy5/ddgs)
+- [Crossref REST API](https://www.crossref.org/documentation/retrieve-metadata/rest-api/)
+- [Google search operators](https://support.google.com/websearch/answer/2466433?hl=en)
+- [Maltego table import](https://docs.maltego.com/support/solutions/articles/15000010797-import-graph-3rd-party-table)
 
 ## Permanent history and source reuse
 

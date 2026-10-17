@@ -24,7 +24,7 @@ function ToolCard({ event, result, state, onEvidence }: {
         {failed ? <AlertTriangle size={14} /> : paused ? <Pause size={14} /> : pending ? <LoaderCircle size={14} className="activity-spin" /> : result ? <Check size={14} /> : <Pause size={14} />}
       </span>
       <span className="min-w-0 flex-1"><span className="block truncate text-xs font-medium text-zinc-200">{toolLabel(event.tool)}</span>
-        <span className="mt-1 block truncate text-[10px] text-zinc-500">{provider(event.tool)} · {event.subagent === "orchestrator" ? "Lead agent" : event.subagent ? "Harvester" : "Agent"}</span></span>
+        <span className="mt-1 block truncate text-[10px] text-zinc-500">{provider(event.tool)} · {event.subagent === "operator" ? "Operator lookup" : event.subagent === "orchestrator" ? "Lead agent" : event.subagent ? "Harvester" : "Agent"}</span></span>
       <span className="shrink-0 text-right text-[10px] text-zinc-500"><span className={failed ? "text-rose-400" : pending ? "text-amber-300" : "text-zinc-400"}>{label}</span>
         {duration !== null && <span className="mt-1 block font-mono">{duration.toFixed(1)}s</span>}</span>
     </summary>
@@ -72,6 +72,8 @@ export function ToolStream({ state, visible, onEvidence, answer }: { state: Inve
         <p className="mx-auto mt-4 max-w-sm text-sm leading-relaxed text-zinc-500">Start with a name and context, or a public profile. We’ll follow the sources together.</p></div>}
       <ResearchProgress logs={logs} />
       {logs.map((event, index) => {
+        if (event.type === "case.ready" || event.type === "source.started" || event.type === "source.complete") return <p key={index} className="py-2 text-sm text-zinc-400">{event.text}</p>;
+        if (event.type === "source.failed" || event.type === "source.cancelled") return <p key={index} role="alert" className="py-2 text-sm text-amber-300">{event.error}</p>;
         if (event.type === "investigation.started" || event.type === "user.message") return <div key={index} className="flex justify-end py-4"><p className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-tr-sm bg-white/6 px-4 py-3 text-sm leading-relaxed text-zinc-200">{event.text || event.target}</p></div>;
         if (event.type === "conversation.failed" || event.type === "conversation.cancelled") return <p key={index} role="alert" className="py-2 text-xs text-amber-300">{event.error || event.text}</p>;
         if (event.type === "tool.started") return <ToolCard key={event.tool_use_id || index} event={event} result={results.get(event.tool_use_id || "")} state={state} onEvidence={onEvidence} />;

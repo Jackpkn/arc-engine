@@ -1,4 +1,4 @@
-"""ARC's four custom OSINT tools, served over Streamable HTTP."""
+"""ARC's public-source OSINT tools, served over Streamable HTTP."""
 
 import asyncio
 import sys
@@ -13,19 +13,77 @@ import json
 import logging
 import os
 import re
+from typing import Literal
 from decimal import Decimal, InvalidOperation
 from urllib.parse import urlsplit
 
 import httpx
 from apify_client import ApifyClientAsync
 from exa_py import AsyncExa
+from ddgs import DDGS
 from fastmcp import FastMCP
 from fastmcp.exceptions import ToolError
 from fastmcp.server.dependencies import get_http_headers
 
+from backend.osint_tools import (
+    inspect_domain_theharvester, search_username_maigret, search_username_sherlock,
+)
+from backend.domain_sources import inspect_domain_archive, inspect_domain_dns
+
 mcp = FastMCP("ARC-Unified-OSINT-Server", mask_error_details=True)
 github_requests = asyncio.Lock()
 logger = logging.getLogger(__name__)
+
+mcp.tool()(search_username_sherlock)
+mcp.tool()(search_username_maigret)
+mcp.tool()(inspect_domain_theharvester)
+mcp.tool()(inspect_domain_dns)
+mcp.tool()(inspect_domain_archive)
+
+
+@mcp.tool()
+async def search_public_web(query: str, backend: Literal["auto", "brave", "yahoo", "duckduckgo", "google"] = "auto") -> dict:
+    """Free public web search through DDGS; choose google for Google dork queries.
+
+    Supports public professional queries such as site: and quoted names. Search
+    engine support for operators varies. Results are unverified discovery leads.
+    No paid API fallback. Engine blocks/rate limits are failures, not no matches.
+    Library result-count and timeout defaults apply; no account quota is assumed.
+    """
+    if not query.strip() or len(query) > 1000:
+        raise ToolError("Provide a nonblank public search query of at most 1,000 characters.")
+    try:
+        results = await asyncio.to_thread(lambda: DDGS().text(query.strip(), backend=backend))
+    except Exception:
+        raise ToolError("Free search failed or was blocked/rate-limited. No paid fallback or automatic retry was attempted.") from None
+    return {"backend": backend, "results": results, "identity_verified": False,
+            "limitation": "Search snippets and matching names are leads; inspect and disambiguate sources before using claims."}
+
+
+@mcp.tool()
+async def search_publications_crossref(query: str) -> dict:
+    """Search free Crossref publication metadata by author, title or professional topic.
+
+    Publisher-deposited author/ORCID/affiliation fields are attribution signals,
+    not proof this is the intended person. Disambiguate before linking authors.
+    No API key or paid provider is used. Provider result/timeout defaults apply.
+    """
+    if not query.strip() or len(query) > 1000:
+        raise ToolError("Provide a nonblank publication query of at most 1,000 characters.")
+    async with httpx.AsyncClient(headers={"User-Agent": "ARC-Engine (public professional research)"}) as client:
+        try:
+            response = await client.get("https://api.crossref.org/works", params={"query.bibliographic": query.strip()})
+            response.raise_for_status()
+            message = response.json()["message"]
+            items = [{key: item[key] for key in (
+                "DOI", "URL", "title", "author", "publisher", "container-title", "published", "type",
+            ) if key in item} for item in message["items"]]
+        except httpx.HTTPStatusError as exc:
+            raise ToolError(f"Crossref HTTP {exc.response.status_code}. Check service availability/rate limits; do not automatically retry.") from None
+        except (httpx.RequestError, ValueError, KeyError, TypeError):
+            raise ToolError("Crossref request failed or returned invalid metadata. No automatic retry.") from None
+    return {"source_url": str(response.url), "items": items, "identity_verified": False,
+            "limitation": "Bibliographic search can mix namesakes; publisher-deposited metadata can be incomplete."}
 
 
 def require_key(name: str) -> str:

@@ -120,6 +120,12 @@ class BoardTests(unittest.TestCase):
         )
         self.assertEqual(len(self.board._list("r", "source")), 2)
         self.assertLess(len(json.dumps(pad.raw_evidence[0]["data"])), 100)
+        from backend.evidence_ledger import content_digest
+        finding = pad.raw_evidence[0]
+        self.assertEqual(finding["content_sha256"], content_digest(finding["data"]))
+        self.assertEqual(len(pad.architect_evidence()), 1)
+        finding["data"]["evidence_ref"] = "tampered-reference"
+        self.assertEqual(pad.architect_evidence(), [])
 
     def test_cancel_rejects_late_results(self):
         task = self.board.admit_task("r", self.proposal(), RunPolicy())

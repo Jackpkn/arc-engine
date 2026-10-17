@@ -10,6 +10,7 @@ from typing import Any
 from uuid import uuid4
 
 from backend.tool_outputs import is_error, model_output, normalize_output, persisted_output_path, source_cache_info
+from backend.evidence_ledger import content_digest
 
 
 class InvestigationScratchpad:
@@ -58,6 +59,7 @@ class InvestigationScratchpad:
         superseded = {finding.get("supersedes_evidence_id") for finding in self.raw_evidence}
         return [{**finding, "data": model_output(finding["source"], finding["data"])}
                 for finding in self.raw_evidence if finding["evidence_id"] not in superseded
+                and (not finding.get("content_sha256") or finding["content_sha256"] == content_digest(finding["data"]))
                 and persisted_output_path(normalize_output(finding["data"])) is None]
 
     def emit(self, event: dict[str, Any]) -> None:
@@ -163,6 +165,10 @@ class InvestigationScratchpad:
                 observed_at=finding["observed_at"], source_kind="UNCLASSIFIED", origin_group=source)
             EvidenceReader(self.research_board, self.session_id).index_source(finding["evidence_id"])
             finding["data"] = {"evidence_ref": finding["evidence_id"]}
+        # The case store hashes the full snapshot; this digest covers the stored
+        # scratchpad data (a reference when a research board owns the payload).
+        finding["content_sha256"] = content_digest(finding["data"])
+        finding["digest_format"] = "sha256:json-sort-keys-utf8-compact-v1"
         self.raw_evidence.append(finding)
         self.emit({"type": "graph.draft_node", "id": f"draft_{tool_use_id}",
                    "evidence_id": finding["evidence_id"], "source": source,
