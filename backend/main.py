@@ -96,6 +96,8 @@ async def tool_status():
                             for name in EXECUTABLES},
             "crossref": {"enabled": True, "paid_provider": False},
             "free_web_search": {"enabled": True, "paid_provider": False},
+            "you_search": {"configured": bool(os.getenv("YDC_API_KEY", "").strip()),
+                           "paid_provider": True, "verification": "configuration_only", "mode": "web_and_news_snippets"},
             "google_dorking": {"mode": "ddgs_google_and_search_links", "paid_provider": False},
             "maltego": {"mode": "csv_export", "paid_provider": False},
             "robin": {"enabled": os.getenv("ARC_ROBIN_ENABLED") == "1", "mode": "search_and_scrape_only"}}

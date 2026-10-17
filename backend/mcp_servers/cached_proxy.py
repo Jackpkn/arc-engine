@@ -20,7 +20,7 @@ from fastmcp.tools import ToolResult, InputRequiredToolResult
 from fastmcp.exceptions import ToolError
 
 from backend.agent import upstream_registry, cache_namespace
-from backend.source_cache import CACHE_NOTE, CacheBlocked, SourceCache, cacheable, refresh_headers
+from backend.source_cache import CACHE_NOTE, CacheBlocked, SourceCache, cacheable, refresh_headers, tool_namespace
 from backend.storage import database_path
 from backend.tool_outputs import normalize_output
 import json
@@ -53,18 +53,19 @@ class SourceCacheMiddleware(Middleware):
         name = context.message.name
         if name not in self.allowed:
             raise ToolError("This source tool is not enabled in ARC.")
+        namespace = tool_namespace(self.namespace, name)
         # Only ordinary single-response source reads are supported by this cache.
         if getattr(context.message, "task", None):
             raise ToolError("Background tool tasks are not enabled for cached source reads.")
         try:
             if self.offline:
                 from backend.source_cache import request_key
-                key = request_key(self.namespace, name, context.message.arguments or {})
-                entry = self.cache.lookup(self.namespace, name, context.message.arguments or {})
+                key = request_key(namespace, name, context.message.arguments or {})
+                entry = self.cache.lookup(namespace, name, context.message.arguments or {})
                 if entry is None:
                     raise ToolError("MISSING_CACHED_SOURCE: offline mode forbids upstream calls.")
             else:
-                key, entry = self.cache.claim(self.namespace, name, context.message.arguments or {}, self.refresh_id)
+                key, entry = self.cache.claim(namespace, name, context.message.arguments or {}, self.refresh_id)
         except CacheBlocked as exc:
             raise ToolError(str(exc)) from None
         if entry.get("hit"):
@@ -108,7 +109,7 @@ def build_proxy(provider: str):
     servers, allowed = upstream_registry()
     if provider not in {"osint", "firecrawl", "github", "robin"} or provider not in servers:
         raise ValueError("Source provider is not configured.")
-    namespace = cache_namespace(provider, servers[provider])
+    namespace = os.getenv("ARC_CACHE_NAMESPACE") or cache_namespace(provider, servers[provider])
     if provider == "osint" and os.getenv("ARC_CACHE_REFRESH_ID") and os.getenv("APIFY_API_TOKEN"):
         servers[provider] = {**servers[provider], "headers": {
             **servers[provider].get("headers", {}),

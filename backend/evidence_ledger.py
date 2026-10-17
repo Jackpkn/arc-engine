@@ -50,6 +50,8 @@ def source_observations(source: str, data) -> list[dict]:
         fields["value"] = "Certificate hostname"
     if source.endswith("search_public_web"):
         fields["body"] = "Search snippet"
+    if source.endswith("search_web_you"):
+        fields.update(snippets="Search snippet", page_age="Provider page date (unverified)")
     observations = []
 
     def walk(value, path="$", inherited=None):

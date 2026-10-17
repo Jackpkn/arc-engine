@@ -2,6 +2,7 @@
 
 import hashlib
 import json
+import os
 import re
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
@@ -35,8 +36,16 @@ def canonical_inputs(tool: str, inputs: dict) -> dict:
             value["linkedin_url"] = f"https://www.linkedin.com{url.path.rstrip('/')}"
         if tool == "scrape_linkedin_posts":
             value.setdefault("max_posts", 10)
-    elif tool in {"search_identity_exa", "search_public_web", "search_publications_crossref"} and isinstance(value.get("query"), str):
+    elif tool in {"search_identity_exa", "search_web_you", "search_public_web", "search_publications_crossref"} and isinstance(value.get("query"), str):
         value["query"] = value["query"].strip()
+        if tool == "search_web_you":
+            value = {key: item for key, item in value.items() if item is not None}
+            value.setdefault("strict_operators", True)
+            if value.get("count") == 10:
+                value.pop("count")  # Documented provider default.
+            for field in ("include_domains", "exclude_domains"):
+                if value.get(field) == []:
+                    value.pop(field)
         if tool == "search_public_web":
             value.setdefault("backend", "auto")
     elif tool in {"search_username_sherlock", "search_username_maigret"} and isinstance(value.get("sites"), list):
@@ -49,6 +58,14 @@ def canonical_inputs(tool: str, inputs: dict) -> dict:
     elif tool == "inspect_github_developer_profile" and isinstance(value.get("github_handle"), str):
         value["github_handle"] = value["github_handle"].lower()
     return value
+
+
+def tool_namespace(namespace: str, tool: str) -> str:
+    # Adding/rotating this optional key must not invalidate other paid sources.
+    if namespace.startswith("osint:") and tool == "search_web_you":
+        fingerprint = hashlib.sha256(os.getenv("YDC_API_KEY", "").strip().encode()).hexdigest()
+        return f"{namespace}:you:{fingerprint}"
+    return namespace
 
 
 def request_key(namespace: str, tool: str, inputs: dict) -> str:
