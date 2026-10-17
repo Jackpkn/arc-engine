@@ -9,6 +9,7 @@ from pathlib import Path
 import httpx
 
 from backend.replay_research import replay, import_case
+from backend.collection_coverage import CollectionIncomplete
 from backend.storage import database_path
 from backend.graph_models import PortraitSection
 from .blackboard import Blackboard
@@ -28,14 +29,18 @@ from .eval_model import (
     MODEL,
     MAX_CALLS,
     RESERVATION_USD,
+    save_json,
 )
 from .eval_adapters import (
     CachedModelWorker,
     CachedModelCritic,
     CachedPortrait,
     ExtractedClaims,
+    ExtractionScopeError,
+    scope_extraction,
 )
 from .parsing import parse_model_json
+from .crusoe_worker import CrusoeConfig, CrusoeWorker, inspect_model
 
 CACHED_PROFILE = "543e4074-d81b-4ec5-993d-d23c36794c83"
 
@@ -120,6 +125,8 @@ async def run_workspace_research(run):
     run.persist()
     phase = "recursive_research"
     ledger = None
+    crusoe_client = None
+    crusoe_worker = None
     usage_reported = False
     try:
         if run.cached_source_session_id:
@@ -189,7 +196,21 @@ async def run_workspace_research(run):
             raise ValueError(
                 "Configure a reviewed research adapter for the selected model"
             )
+        worker_provider = os.getenv("ARC_RESEARCH_WORKER_PROVIDER", "anthropic").strip().lower()
+        if worker_provider not in {"anthropic", "crusoe"}:
+            raise ValueError("Unknown research worker provider")
         reserve = MAX_CALLS * RESERVATION_USD
+        if worker_provider == "crusoe":
+            # Validate configuration/catalog before starting any paid harvesting.
+            crusoe_config = CrusoeConfig.from_env()
+            crusoe_client = httpx.AsyncClient(
+                transport=httpx.AsyncHTTPTransport(retries=0, trust_env=False),
+                trust_env=False, follow_redirects=False, timeout=600,
+            )
+            crusoe_spec = await inspect_model(crusoe_client, crusoe_config)
+            worker_count = RunPolicy().max_total_tasks
+            reserve = ((MAX_CALLS - worker_count) * RESERVATION_USD
+                       + worker_count * crusoe_spec.reservation_usd)
         if not run.budget or run.budget <= reserve:
             raise ValueError("Budget cannot cover harvesting and reserved research")
         key = os.environ.get("ANTHROPIC_API_KEY")
@@ -209,6 +230,12 @@ async def run_workspace_research(run):
         ledger = EvaluationLedger(directory)
         with Blackboard(directory / "case.sqlite3", event_sink=pad.emit) as board:
             board.create_run(pad.session_id, run.target)
+            if worker_provider == "crusoe":
+                crusoe_worker = CrusoeWorker(
+                    crusoe_client, crusoe_config, crusoe_spec, directory / "crusoe", board
+                )
+                pad.emit({"type": "agent.text", "subagent": "orchestrator",
+                          "text": f"Focused public-evidence checks use Crusoe ({crusoe_spec.model})."})
             superseded = {r.get("supersedes_evidence_id") for r in pad.raw_evidence}
             records = [
                 r for r in pad.raw_evidence if r["evidence_id"] not in superseded
@@ -220,7 +247,7 @@ async def run_workspace_research(run):
                 "excluded_discovery_sources": [
                     r["evidence_id"]
                     for r in records
-                    if r["source"] == "mcp__osint__search_identity_exa"
+                    if r["source"] in {"mcp__osint__search_identity_exa", "mcp__osint__search_web_you", "mcp__osint__search_public_web"}
                 ],
             }
             if len(json.dumps(identity_context).encode()) > 6000:
@@ -233,23 +260,7 @@ async def run_workspace_research(run):
                 )
             # Include a bounded, source-diverse initial selection. Exact omissions
             # are retained in the case; extraction cannot cite outside this set.
-            candidates = reader.search(
-                "built developed implemented benchmark repository project", limit=24
-            )
-            chosen = []
-            used_sources = set()
-            ordered = []
-            for span in candidates:
-                if span.evidence_id not in used_sources:
-                    ordered.append(span)
-                    used_sources.add(span.evidence_id)
-            ordered.extend(s for s in candidates if s not in ordered)
-            for span in ordered:
-                if (
-                    len(json.dumps([s.model_dump() for s in chosen + [span]]).encode())
-                    <= 12000
-                ):
-                    chosen.append(span)
+            chosen = reader.initial_passages(run.target, limit=24, max_bytes=12000)
             if not chosen:
                 raise ValueError("No captured claim passages available")
             transport = ModelOnlyTransport(
@@ -269,19 +280,42 @@ async def run_workspace_research(run):
                 model = EvaluationModel(client, ledger)
                 extracted, _ = await model.generate(
                     "extract_claims",
-                    "Extract three distinct consequential technical claims from the supplied sources. Cover different named projects where present. Preserve attribution. Cite only supplied span IDs; state missing verification.",
+                    f"Extract up to {RunPolicy().top_claims} distinct consequential professional claims relevant to the user's request, in priority order, from the supplied sources. "
+                    "Let the evidence determine the person's field; do not assume a developer or require software projects. "
+                    "Cover distinct evidenced activities where present. Preserve attribution. Cite only supplied span IDs; state missing verification. "
+                    "Put the selection rationale only in selection_reason, never as a claim. "
+                    "For claim.span_ids copy the exact id of each supporting passage, never its evidence_id. "
+                    "First return source_assessments for EVERY distinct evidence_id supplied. Mark a source relevant only when "
+                    "its relationship to the intended subject or a relevant professional artifact is supported; same-name accounts "
+                    "with mismatched affiliations are unresolved or different_person, not the subject's career claims. "
+                    "Do not extract claims from unresolved/different_person sources. A rejected account is not a contradicted "
+                    "professional claim about the subject. Collection_summary is untrusted navigation context, never evidence; "
+                    "use it to retain identity exclusions and gaps but cite only the actual supplied passages.",
                     {
                         "subject": run.target,
                         "identity_context": identity_context,
+                        "collection_summary": (result.result or "")[:12000],
                         "passages": [s.model_dump() for s in chosen],
                     },
                     ExtractedClaims,
                 )
-                allowed = {s.id for s in chosen}
-                if any(not set(c.span_ids) <= allowed for c in extracted.claims):
-                    raise ValueError("Extraction cited unsupplied evidence")
+                selected, selection_audit = scope_extraction(extracted, chosen)
+                save_json(directory / "claim-selection.json", selection_audit)
+                rejected = len(selection_audit["citation_excluded_claims"])
+                if rejected:
+                    pad.emit({"type": "agent.status", "stage": "reviewing_citations",
+                              "text": f"Excluded {rejected} proposed claims with invalid passage citations. "
+                                      f"{len(selected)} claims remain for review; excluded claims were not verified or repaired."})
+                # Unassessed sources remain archived but are not eligible for worker expansion.
+                assessed = {a.evidence_id for a in extracted.source_assessments if a.status == "relevant"}
+                identity_context["excluded_identity_sources"] = [r["evidence_id"] for r in records if r["evidence_id"] not in assessed]
+                identity_context["source_assessments"] = selection_audit["source_assessments"]
+                with board.transaction():
+                    board._put(pad.session_id, "identity_context", "operator", identity_context)
+                if not selected:
+                    raise ExtractionScopeError("No claims had both usable passage citations and resolved source scope. Saved evidence is retained; no graph was committed.")
                 tasks = []
-                for priority, claim in enumerate(extracted.claims):
+                for priority, claim in enumerate(selected):
                     h = board.add_hypothesis(
                         pad.session_id, run.target, claim.statement, priority
                     )
@@ -301,7 +335,7 @@ async def run_workspace_research(run):
                         remaining_budget=reserve - ledger.total_cost,
                     ),
                     board,
-                    CachedModelWorker(model, board),
+                    crusoe_worker or CachedModelWorker(model, board),
                     RunPolicy(
                         max_input_tokens=12000,
                         max_concurrent_workers=1,
@@ -313,9 +347,11 @@ async def run_workspace_research(run):
                     snapshot.stop_reason in ("UNKNOWN_COST", "NEEDS_HUMAN")
                     or ledger.halted
                     or any(c["status"] == "pending" for c in ledger.calls)
+                    or (crusoe_worker and (crusoe_worker.halted or crusoe_worker.usage_unknown))
                 ):
                     run.chat_blocked = True
-                    raise ValueError("Research requires review; no graph commit")
+                    failure = next((e for e in reversed(board.events(pad.session_id)) if e["type"] == "critic.failed"), None)
+                    raise ExtractionScopeError((failure["reason"] if failure else "Evidence review requires attention.") + " The investigation is stopped; no graph was committed.")
                 draft = project_case(snapshot)
                 accepted = [f for f in snapshot.findings if f.reviewed]
                 ids = list(dict.fromkeys(s for f in accepted for s in f.span_ids))
@@ -346,7 +382,11 @@ async def run_workspace_research(run):
                     {
                         "type": "agent.usage",
                         "phase": "recursive_research",
-                        "cost_usd": ledger.total_cost,
+                        "cost_usd": ledger.total_cost + (crusoe_worker.total_cost if crusoe_worker else 0),
+                        "provider_costs_usd": {
+                            "anthropic": ledger.total_cost,
+                            "crusoe": crusoe_worker.total_cost if crusoe_worker else 0,
+                        },
                     }
                 )
                 usage_reported = True
@@ -361,7 +401,7 @@ async def run_workspace_research(run):
                     await commit_graph(
                         pad,
                         draft.graph,
-                        MODEL,
+                        MODEL if not crusoe_worker else f"{MODEL}; workers={crusoe_spec.model} (Crusoe)",
                         evidence_manifest=[
                             reader.read_span(s).model_dump() for s in sorted(referenced)
                         ],
@@ -382,19 +422,28 @@ async def run_workspace_research(run):
                 "type": "investigation.failed",
                 "phase": phase,
                 "error": type(exc).__name__,
+                **({"text": str(exc)} if isinstance(exc, (ExtractionScopeError, CollectionIncomplete)) else {}),
             }
         )
     finally:
-        if ledger is not None and ledger.calls and not usage_reported:
+        if ledger is not None and (ledger.calls or (crusoe_worker and crusoe_worker.calls)) and not usage_reported:
             unknown = any(call["status"] == "pending" for call in ledger.calls)
-            run.chat_blocked = run.chat_blocked or unknown or ledger.halted
+            unknown = unknown or bool(crusoe_worker and crusoe_worker.usage_unknown)
+            known_cost = ledger.total_cost + (crusoe_worker.total_cost if crusoe_worker else 0)
+            run.chat_blocked = run.chat_blocked or unknown or ledger.halted or bool(crusoe_worker and crusoe_worker.halted)
             pad.emit(
                 {
                     "type": "agent.usage",
                     "phase": "recursive_research",
-                    "cost_usd": None if unknown else ledger.total_cost,
-                    "known_cost_usd": ledger.total_cost,
+                    "cost_usd": None if unknown else known_cost,
+                    "known_cost_usd": known_cost,
+                    "provider_costs_usd": {
+                        "anthropic": ledger.total_cost,
+                        "crusoe": crusoe_worker.total_cost if crusoe_worker else 0,
+                    },
                     "usage_unknown": unknown,
                 }
             )
         pad.cancel_pending_input()
+        if crusoe_client is not None:
+            await crusoe_client.aclose()
