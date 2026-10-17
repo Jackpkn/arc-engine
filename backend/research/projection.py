@@ -1,7 +1,7 @@
 """Deterministic public projection. Source presence never substitutes for review."""
 
 from typing import Protocol
-from pydantic import Field
+from pydantic import Field, field_validator
 from backend.graph_models import (
     AgentConstructedGraph,
     GraphNodeSpec,
@@ -36,6 +36,21 @@ class PortraitDraft(Model):
     sections: list[PortraitSection] = Field(default_factory=list)
     missing_sections: list[str] = Field(default_factory=lambda: list(SECTIONS))
     cost_usd: float | None = 0
+
+    @field_validator("sections", mode="before")
+    @classmethod
+    def normalize_empty_limitation_notes(cls, sections):
+        # Some model responses add this empty companion to the required
+        # limitations field. Remove only that no-content formatting artifact;
+        # substantive extras and missing required fields still fail validation.
+        if not isinstance(sections, list):
+            return sections
+        return [
+            {key: value for key, value in section.items() if key != "limitations_note"}
+            if isinstance(section, dict) and "limitations" in section
+            and section.get("limitations_note") == "" else section
+            for section in sections
+        ]
 
 
 class PortraitSynthesizer(Protocol):

@@ -1,9 +1,45 @@
+import json
 import unittest
+from pydantic import ValidationError
 from backend.tests import test_research_blackboard as fixtures
 from backend.research.models import RunPolicy, WorkerResult, Finding
 from backend.research.critic import apply_review, CriticDecision, FindingReview
 from backend.research.projection import project_case
 from backend.graph_models import AgentConstructedGraph
+
+
+class PortraitParsingTests(unittest.TestCase):
+    def section(self):
+        return dict(section="core_obsessions", title="Project interests",
+                    analysis="The author describes building an editor.",
+                    limitations="Self-reported; implementation not verified.",
+                    evidence_ids=["source-1"], span_ids=["span-1"])
+
+    def test_empty_extra_limitation_note_preserves_required_fields_and_citations(self):
+        from backend.research.parsing import parse_model_json
+        from backend.research.projection import PortraitDraft
+        section = self.section()
+        result = parse_model_json(json.dumps({"sections": [
+            {**section, "limitations_note": ""}
+        ]}), PortraitDraft)
+        parsed = result.sections[0].model_dump()
+        for key, value in section.items():
+            self.assertEqual(parsed[key], value)
+        self.assertNotIn("limitations_note", parsed)
+
+    def test_substantive_extra_notes_and_unknown_fields_are_not_discarded(self):
+        from backend.research.projection import PortraitDraft
+        for extra in ({"limitations_note": "Contradictory evidence exists."},
+                      {"limitations_note": None}, {"made_up_field": ""}):
+            with self.subTest(extra=extra), self.assertRaises(ValidationError):
+                PortraitDraft.model_validate({"sections": [{**self.section(), **extra}]})
+
+    def test_empty_note_does_not_replace_required_limitations(self):
+        from backend.research.projection import PortraitDraft
+        section = self.section()
+        del section["limitations"]
+        with self.assertRaises(ValidationError):
+            PortraitDraft.model_validate({"sections": [{**section, "limitations_note": ""}]})
 
 
 class ProjectionTests(unittest.TestCase):

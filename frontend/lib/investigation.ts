@@ -194,7 +194,7 @@ export function applyEvent(state: InvestigationState, event: ArcEvent): Investig
         usageUnknown: state.usageUnknown || event.usage_unknown === true || event.cost_usd == null,
         cacheRead: state.cacheRead + (event.cache_read_input_tokens || 0) };
     case "investigation.complete":
-      return { ...next, status: "complete", prompts: [] };
+      return { ...next, status: "complete", prompts: [], error: "" };
     case "investigation.failed":
       return { ...next, status: "failed", prompts: [],
         error: `${event.phase || "Investigation"} failed (${event.error || "unknown error"}).` };
