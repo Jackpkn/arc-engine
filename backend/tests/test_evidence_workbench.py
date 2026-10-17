@@ -26,6 +26,23 @@ from backend.storage import RunStore
 
 
 class WorkbenchTests(unittest.IsolatedAsyncioTestCase):
+    async def test_withdrawn_assessment_disappears_from_ledger_and_exports(self):
+        from backend.evidence_ledger import export_report, report_markdown
+        run = Investigation("Public professional")
+        run.scratchpad = InvestigationScratchpad("withdrawn", run.emit)
+        run.scratchpad.emit({"type": "graph.final_commit", "graph": {
+            "summary": "WRONG IDENTITY ASSERTION", "nodes": [], "edges": []}})
+        self.assertTrue(build_ledger(run)["assessment"]["present"])
+        run.scratchpad.emit({"type": "graph.withdrawn", "reason": "Identity mismatch"})
+        assessment = export_report(run)["assessment"]
+        self.assertFalse(assessment["present"])
+        self.assertEqual(assessment["withdrawal_reason"], "Identity mismatch")
+        self.assertNotIn("WRONG IDENTITY ASSERTION", report_markdown(run))
+        self.assertEqual(run.events[0]["graph"]["summary"], "WRONG IDENTITY ASSERTION")
+        run.scratchpad.emit({"type": "graph.final_commit", "graph": {
+            "summary": "Corrected later", "nodes": [], "edges": []}})
+        self.assertTrue(build_ledger(run)["assessment"]["present"])
+
     async def test_case_lookup_idempotency_provenance_and_exports_survive_restart(self):
         with tempfile.TemporaryDirectory() as directory, patch.dict(os.environ, {"ARC_DATABASE_PATH": str(Path(directory) / "history.sqlite3")}, clear=True):
             result = {"structuredContent": {"source_url": "https://example.org/project", "results": [{"href": "https://github.com/public/project", "title": "<script>untrusted source text</script>"}]}}

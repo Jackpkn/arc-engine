@@ -189,6 +189,10 @@ export function applyEvent(state: InvestigationState, event: ArcEvent): Investig
         links: event.graph.edges.map((edge) => ({ source: edge.source_id, target: edge.target_id,
           relationship: edge.relationship, reason: edge.reason })),
       } };
+    case "graph.withdrawn":
+      return { ...next, committed: false, portrait: [], judgment: null,
+        graph: { nodes: [], links: [] }, status: "failed", prompts: [],
+        error: event.reason || "This assessment was withdrawn. Captured sources remain available for review." };
     case "agent.usage":
       return { ...next, cost: state.cost + (event.cost_usd ?? event.known_cost_usd ?? 0),
         usageUnknown: state.usageUnknown || event.usage_unknown === true || event.cost_usd == null,

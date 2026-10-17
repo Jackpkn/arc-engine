@@ -82,6 +82,11 @@ export function NodeInspector({ node, onEvidence, onClose }: {
 export function ReviewPanel({ state, onSelect, onEvidence, onSpans }: {
   state: InvestigationState; onSelect: (id: string) => void; onEvidence: (id: string) => void; onSpans?: (ids: string[]) => void;
 }) {
+  const assessment = state.logs.findLast((event) => ["graph.final_commit", "graph.research_preview", "graph.withdrawn"].includes(event.type));
+  if (assessment?.type === "graph.withdrawn") return <section aria-label="AI research dossier" className="space-y-3 p-7">
+    <h2 className="text-xl text-amber-200">Assessment withdrawn</h2>
+    <p className="max-w-2xl text-sm leading-relaxed text-zinc-400">{assessment.reason}</p>
+  </section>;
   const nodes = state.graph.nodes.filter((node) => !node.isDraft);
   const claims = nodes.filter((node) => node.label === "Claim");
   const artifacts = nodes.filter((node) => node.label === "Artifact");

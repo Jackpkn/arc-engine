@@ -15,7 +15,7 @@ async def write_graph(tx, scratchpad: InvestigationScratchpad, graph: AgentConst
         "MERGE (run:ARCInvestigation {session_id: $session_id}) "
         "SET run.evidence_json = $evidence, run.human_decisions_json = $human_decisions, "
         "run.summary = $summary, run.model = $model, "
-        "run.graph_json = $graph_json, "
+        "run.graph_json = $graph_json, run.withdrawn = false, run.withdrawal_reason = null, run.withdrawn_at = null, "
         "run.archetype = $archetype, run.score = $score, run.committed_at = datetime()",
         session_id=scratchpad.session_id, evidence=json.dumps(evidence_manifest if evidence_manifest is not None else scratchpad.architect_evidence()),
         graph_json=graph.model_dump_json(),
