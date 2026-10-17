@@ -97,6 +97,27 @@ pathlib.Path("result.json").write_text(json.dumps({"args": sys.argv[1:], "isolat
             self.assertNotIn("env", servers["robin"])
             self.assertNotIn("-v", servers["robin"]["args"])
 
+    async def test_robin_waits_for_tor_then_caches_one_source_call(self):
+        from types import SimpleNamespace
+        client = SimpleNamespace(call_tool=AsyncMock(side_effect=[
+            SimpleNamespace(content=[mt.TextContent(type="text", text="status: ok\ntor: down (tor_bootstrapping)")]),
+            SimpleNamespace(content=[mt.TextContent(type="text", text="status: ok\ntor: up")]),
+        ]))
+        with tempfile.TemporaryDirectory() as directory:
+            cache = SourceCache(Path(directory) / "cache.sqlite3")
+            middleware = SourceCacheMiddleware(cache, "robin:fixture", {"robin_scrape"}, robin_client=client)
+            context = MiddlewareContext(message=mt.CallToolRequestParams(name="robin_scrape", arguments={"urls": ["https://example.com"]}))
+            source = AsyncMock(return_value=ToolResult(content=[mt.TextContent(type="text", text="status: ok\n1 of 1 pages read.")]))
+            with patch("backend.mcp_servers.cached_proxy.asyncio.sleep", AsyncMock()):
+                first = await middleware.on_call_tool(context, source)
+                second = await middleware.on_call_tool(context, source)
+            self.assertFalse(first.meta["arc_source_cache"]["hit"])
+            self.assertTrue(second.meta["arc_source_cache"]["hit"])
+            self.assertEqual(source.await_count, 1)
+            self.assertEqual(client.call_tool.await_args_list[0].args, ("robin_health", {"check_engines": False}))
+            self.assertEqual(client.call_tool.await_count, 2)
+            cache.close()
+
     async def test_robin_setup_and_failed_scrapes_never_become_cached_evidence(self):
         with tempfile.TemporaryDirectory() as directory:
             cache = SourceCache(Path(directory) / "cache.sqlite3")

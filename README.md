@@ -596,6 +596,53 @@ remain blocked until an explicit fresh-source request. Robin setup/outage replie
 are rejected before caching or evidence capture; use explicit returned URLs, not
 session-local result IDs when scraping cached Robin search results.
 
+### Running integration verification — October 17, 2026
+
+The merged integration workspace requires its own ignored tool installations;
+merging a PR does not copy `.arc/bin`, isolated environments or Docker images.
+Sherlock 0.16.2, Maigret 0.6.6 and the pinned theHarvester 5.0.0 are now installed
+in `/private/tmp/arc-integration-20261017/.arc/`. The pinned Robin image is present
+and `ARC_ROBIN_ENABLED=1` is set in the ignored local environment.
+
+Checks against the real running MCP server (no model calls or paid source calls):
+
+| Tool | Observed result |
+| --- | --- |
+| Sherlock / Maigret | Each returned the supplied Jackpkn GitHub account; one site per check |
+| theHarvester | Completed crtsh collection for example.com; one hostname returned |
+| DDGS auto search | Seven public documentation search results; individual engines may still block |
+| Crossref | Twenty publication records using the provider default response size |
+| DNS | Two A records for example.com |
+| Internet Archive | One archived HTML page after fixing the client read timeout |
+| Robin | One example.com page read through Tor; production proxy repeat was a cache hit |
+| Maltego | Six CSV rows exported from the already committed public dossier |
+| GitHub / Firecrawl / Neo4j | MCP connection and tool discovery passed; no new scraping or writes |
+
+Robin search itself is not yet live-verified here: its upstream tool requires a
+user-selected research domain. No `user_chose=true` claim was fabricated. Only
+search and scrape are permitted to research agents; Robin model tools remain denied.
+Existing Exa/Apify and other paid-source verification receipts remain historical
+checks, not new verification from this milestone.
+
+Two integration fixes were needed. The archive adapter now uses a 60-second
+client timeout matching the documented
+[WaybackSession default](https://wayback.readthedocs.io/en/stable/usage.html#wayback.WaybackSession),
+rather than HTTPX's generic five seconds. This is a client setting, not a provider
+quota or SLA; timeouts remain failures with no automatic retry. Robin now retains
+one MCP connection per cache-proxy process and polls its local `robin_health`
+without engine or model probes before the first uncached read. This follows the
+[pinned upstream startup behavior](https://github.com/apurvsinghgautam/robin/blob/main/entrypoint.sh)
+and its documented [MCP startup/tool windows](https://github.com/apurvsinghgautam/robin#robin-as-mcp):
+60 seconds for startup, 600 seconds per tool. Only readiness is polled; source
+operations are not automatically repeated. Cached reads preserve `observed_at`.
+The connection/container is closed with the proxy, without host mounts or keys.
+
+Receipts, original failures and successful post-fix results are in the running
+workspace's ignored `.arc/verification/tools-20261017/`. All 99 backend offline
+tests pass. The actual browser displays the three local tools as installed;
+verification did not start an investigation. These are representative checks,
+not a guarantee that every site will respond or that every username match is correct.
+
 ### Local installation
 
 These tools are isolated from ARC's Python dependencies in ignored `.arc/tools`

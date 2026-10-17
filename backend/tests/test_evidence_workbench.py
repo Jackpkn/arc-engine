@@ -112,6 +112,29 @@ class WorkbenchTests(unittest.IsolatedAsyncioTestCase):
         del run.scratchpad.raw_evidence[0]["content_sha256"]
         self.assertIsNone(build_ledger(run)["records"][0]["integrity_matches"])
 
+    async def test_archive_allows_slow_index_response_and_reports_timeout_without_retry(self):
+        rows = [["timestamp", "original", "mimetype", "statuscode", "digest"],
+                ["20200102030405", "https://example.org/about", "text/html", "200", "digest"]]
+        calls = []
+        def slow_index(request):
+            calls.append(request)
+            if request.extensions["timeout"]["read"] <= 5:
+                raise httpx.ReadTimeout("Index needs more than the generic five seconds", request=request)
+            return httpx.Response(200, json=rows, request=request)
+        real_client = httpx.AsyncClient
+        with patch("backend.domain_sources.httpx.AsyncClient", side_effect=lambda **kw: real_client(transport=httpx.MockTransport(slow_index), **kw)):
+            result = await inspect_domain_archive("example.org", 1)
+        self.assertEqual(result["pages"][0]["url"], "https://example.org/about")
+        self.assertEqual(len(calls), 1)
+        calls.clear()
+        def outage(request):
+            calls.append(request)
+            raise httpx.ReadTimeout("No response", request=request)
+        with patch("backend.domain_sources.httpx.AsyncClient", side_effect=lambda **kw: real_client(transport=httpx.MockTransport(outage), **kw)):
+            with self.assertRaisesRegex(ToolError, "timed out"):
+                await inspect_domain_archive("example.org", 1)
+        self.assertEqual(len(calls), 1)
+
     async def test_dns_and_archive_errors_are_not_negative_identity_evidence(self):
         with patch("backend.domain_sources.public_json", AsyncMock(return_value=({"Status": 2}, "https://dns.google/resolve"))):
             with self.assertRaises(ToolError):
