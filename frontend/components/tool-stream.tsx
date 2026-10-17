@@ -50,6 +50,8 @@ export function ToolStream({ state, visible, onEvidence, answer }: { state: Inve
   const paused = state.prompts.length > 0 || state.connection === "reconnecting";
   const results = useMemo(() => toolResults(logs), [logs]);
   const calls = logs.filter((event) => event.type === "tool.started");
+  const failures = logs.filter((event) => event.type === "investigation.failed");
+  const latestFailure = failures.at(-1);
   const start = logs.find((event) => event.type === "investigation.started")?.timestamp;
   const end = [...logs].reverse().find((event) => ["investigation.complete", "investigation.failed", "investigation.cancelled"].includes(event.type))?.timestamp;
   const elapsed = start ? Math.max(0, Math.floor((end ?? (active && now ? now : start)) - start)) : 0;
@@ -77,7 +79,18 @@ export function ToolStream({ state, visible, onEvidence, answer }: { state: Inve
         if (event.type === "investigation.started" || event.type === "user.message") return <div key={index} className="flex justify-end py-4"><p className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-tr-sm bg-white/6 px-4 py-3 text-sm leading-relaxed text-zinc-200">{event.text || event.target}</p></div>;
         if (event.type === "conversation.failed" || event.type === "conversation.cancelled") return <p key={index} role="alert" className="py-2 text-xs text-amber-300">{event.error || event.text}</p>;
         if (event.type === "tool.started") return <ToolCard key={event.tool_use_id || index} event={event} result={results.get(event.tool_use_id || "")} state={state} onEvidence={onEvidence} />;
-        if (["evidence.skipped", "investigation.failed"].includes(event.type)) return <div key={index} className="rounded-lg border border-rose-900/60 bg-rose-950/15 p-3 text-xs text-rose-300"><p className="flex items-center gap-2"><AlertTriangle size={13} />{toolLabel(event.tool) || "Investigation"}</p><p className="mt-2 leading-relaxed">{event.error || event.reason}</p></div>;
+        if (event.type === "investigation.failed") {
+          if (event !== latestFailure) return null;
+          return <div key={index} aria-label="Investigation stopped" className="rounded-lg border border-rose-900/60 bg-rose-950/15 p-3 text-xs text-rose-300">
+            <p className="flex items-center gap-2"><AlertTriangle size={13} />Investigation stopped</p>
+            <p className="mt-2 leading-relaxed">{event.text || event.error || event.reason}</p>
+            {failures.length > 1 && <details className="mt-3 text-zinc-400">
+              <summary className="cursor-pointer">Earlier error details ({failures.length - 1})</summary>
+              {failures.slice(0, -1).map((failure, i) => <p key={i} className="mt-2 break-words">{failure.phase ? `${failure.phase}: ` : ""}{failure.text || failure.error || failure.reason}</p>)}
+            </details>}
+          </div>;
+        }
+        if (event.type === "evidence.skipped") return <div key={index} className="rounded-lg border border-rose-900/60 bg-rose-950/15 p-3 text-xs text-rose-300"><p className="flex items-center gap-2"><AlertTriangle size={13} />{toolLabel(event.tool) || "Evidence"}</p><p className="mt-2 leading-relaxed">{event.text || event.error || event.reason}</p></div>;
         if (event.type === "agent.text") return <AgentResponse key={index} text={event.text || ""}
           label={event.subagent && event.subagent !== "orchestrator" ? "Source harvester" : "ARC"}
           streaming={active && !paused && index === logs.length - 1} />;

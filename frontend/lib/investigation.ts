@@ -201,7 +201,7 @@ export function applyEvent(state: InvestigationState, event: ArcEvent): Investig
       return { ...next, status: "complete", prompts: [], error: "" };
     case "investigation.failed":
       return { ...next, status: "failed", prompts: [],
-        error: `${event.phase || "Investigation"} failed (${event.error || "unknown error"}).` };
+        error: event.text || `${event.phase || "Investigation"} failed (${event.error || "unknown error"}).` };
     case "investigation.cancelled":
       return { ...next, status: "cancelled", prompts: [] };
     default:
