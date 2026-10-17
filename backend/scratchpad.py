@@ -10,6 +10,7 @@ from typing import Any
 from uuid import uuid4
 
 from backend.tool_outputs import is_error, model_output, normalize_output, persisted_output_path, source_cache_info
+from backend.evidence_ledger import content_digest
 
 
 class InvestigationScratchpad:
@@ -25,6 +26,7 @@ class InvestigationScratchpad:
         emit: Callable[[dict], None] | None = None,
         *,
         max_evidence_bytes: int = 500_000,
+        research_board=None,
     ):
         if max_evidence_bytes <= 0:
             raise ValueError("max_evidence_bytes must be positive.")
@@ -40,6 +42,7 @@ class InvestigationScratchpad:
         self._input_options: dict[str, tuple[str, list[dict[str, Any]], bool]] = {}
         self._bytes = 0
         self.refresh_sources = False
+        self.research_board = research_board
 
     def restore(self, evidence: list[dict], human_decisions: list[dict]) -> None:
         """Restore records and size accounting without replaying side effects."""
@@ -56,6 +59,7 @@ class InvestigationScratchpad:
         superseded = {finding.get("supersedes_evidence_id") for finding in self.raw_evidence}
         return [{**finding, "data": model_output(finding["source"], finding["data"])}
                 for finding in self.raw_evidence if finding["evidence_id"] not in superseded
+                and (not finding.get("content_sha256") or finding["content_sha256"] == content_digest(finding["data"]))
                 and persisted_output_path(normalize_output(finding["data"])) is None]
 
     def emit(self, event: dict[str, Any]) -> None:
@@ -142,7 +146,7 @@ class InvestigationScratchpad:
         if data is None or data == "" or data == [] or data == {}:
             return "empty", None
         size = len(json.dumps(data, ensure_ascii=False).encode())
-        if self._bytes + size > self._max_evidence_bytes:
+        if self.research_board is None and self._bytes + size > self._max_evidence_bytes:
             self.emit({"type": "evidence.skipped", "tool": source,
                        "tool_use_id": tool_use_id,
                        "reason": "Scratchpad evidence size limit reached."})
@@ -155,6 +159,16 @@ class InvestigationScratchpad:
                    "observed_at": cache["observed_at"] if cache else retrieved_at,
                    "retrieved_at": retrieved_at, "source_cache": cache,
                    "data": deepcopy(data)}
+        if self.research_board is not None:
+            from backend.research.evidence import EvidenceReader
+            self.research_board.add_source(self.session_id, finding["evidence_id"], data,
+                observed_at=finding["observed_at"], source_kind="UNCLASSIFIED", origin_group=source)
+            EvidenceReader(self.research_board, self.session_id).index_source(finding["evidence_id"])
+            finding["data"] = {"evidence_ref": finding["evidence_id"]}
+        # The case store hashes the full snapshot; this digest covers the stored
+        # scratchpad data (a reference when a research board owns the payload).
+        finding["content_sha256"] = content_digest(finding["data"])
+        finding["digest_format"] = "sha256:json-sort-keys-utf8-compact-v1"
         self.raw_evidence.append(finding)
         self.emit({"type": "graph.draft_node", "id": f"draft_{tool_use_id}",
                    "evidence_id": finding["evidence_id"], "source": source,

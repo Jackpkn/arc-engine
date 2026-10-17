@@ -30,12 +30,18 @@ async def run_followup(run, message: str, request_id: str, remaining: float):
             max_turns=1, max_budget_usd=remaining,
         )
         payload = {"question": message}
+        evidence = pad.architect_evidence()
         if not run.chat_session_id:
             graph = next((e["graph"] for e in reversed(run.events) if e["type"] == "graph.final_commit"), None)
-            payload.update(target=run.target, evidence=pad.architect_evidence(), graph=graph,
+            payload.update(target=run.target, evidence=evidence, graph=graph,
                            human_decisions=pad.human_decisions,
                            previous_summary=next((e.get("text") for e in reversed(run.events)
                                                   if e["type"] == "agent.result"), None))
+        else:
+            new_evidence = [item for item in evidence if item["evidence_id"] not in run.chat_evidence_ids]
+            if new_evidence:
+                payload.update(additional_captured_evidence=new_evidence,
+                               assessment_notice="These captured sources may postdate the committed graph. No assessment was regenerated.")
         streamed = False
         result = None
         async with ClaudeSDKClient(options=options) as client:
@@ -56,6 +62,7 @@ async def run_followup(run, message: str, request_id: str, remaining: float):
                     pad.emit({**usage_event(item, "conversation"), "cost_usd": cost - run.chat_cost})
                     run.chat_cost = cost
                     run.chat_session_id = item.session_id
+                    run.chat_evidence_ids = [item["evidence_id"] for item in evidence]
                     received_result = True
         if result is None or result.is_error or result.subtype != "success":
             raise RuntimeError("Conversation did not complete")

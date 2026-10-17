@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { AlertTriangle, ExternalLink, ShieldCheck, Fingerprint, ArrowUpRight, Layers, LoaderCircle, X } from "lucide-react";
 import { safeSourceUrl, type GraphNode, type HumanPrompt, type InvestigationState } from "@/lib/investigation";
+import { ResearchCoverage } from "./research-progress";
 import { ProfessionalPortrait } from "./professional-portrait";
 
 function HumanQuestion({ prompt, answer }: {
@@ -56,7 +57,7 @@ export function HumanReview({ state, answer }: {
 }
 
 export function TrustBadge({ node }: { node: GraphNode }) {
-  const value = node.isDraft ? "Draft source" : node.evidence_state || "Unassessed";
+  const value = node.isDraft ? "Draft source" : String(node.metadata?.support || node.evidence_state || "Unassessed");
   const color = node.evidence_state === "supported" ? "text-emerald-300 border-emerald-500/20 bg-emerald-500/5"
     : node.evidence_state === "disputed" ? "text-rose-300 border-rose-500/20 bg-rose-500/5"
     : node.evidence_state === "interpretation" ? "text-violet-300 border-violet-500/20 bg-violet-500/5"
@@ -78,9 +79,14 @@ export function NodeInspector({ node, onEvidence, onClose }: {
   </aside>;
 }
 
-export function ReviewPanel({ state, onSelect, onEvidence }: {
-  state: InvestigationState; onSelect: (id: string) => void; onEvidence: (id: string) => void;
+export function ReviewPanel({ state, onSelect, onEvidence, onSpans }: {
+  state: InvestigationState; onSelect: (id: string) => void; onEvidence: (id: string) => void; onSpans?: (ids: string[]) => void;
 }) {
+  const assessment = state.logs.findLast((event) => ["graph.final_commit", "graph.research_preview", "graph.withdrawn"].includes(event.type));
+  if (assessment?.type === "graph.withdrawn") return <section aria-label="AI research dossier" className="space-y-3 p-7">
+    <h2 className="text-xl text-amber-200">Assessment withdrawn</h2>
+    <p className="max-w-2xl text-sm leading-relaxed text-zinc-400">{assessment.reason}</p>
+  </section>;
   const nodes = state.graph.nodes.filter((node) => !node.isDraft);
   const claims = nodes.filter((node) => node.label === "Claim");
   const artifacts = nodes.filter((node) => node.label === "Artifact");
@@ -95,7 +101,8 @@ export function ReviewPanel({ state, onSelect, onEvidence }: {
       <p className="mt-2 max-w-xl text-xs leading-relaxed text-zinc-500">{state.target ? "Collected sources, attributed claims and an assessment you can inspect." : "Start with a name and context, or a public profile. Follow each finding back to its source."}</p></div>
       {state.judgment && <span className="rounded-full border border-violet-400/20 bg-violet-500/5 px-3 py-1 text-[10px] text-violet-300">{state.judgment.archetype.replaceAll("_", " / ")}</span>}
     </div>
-    <ProfessionalPortrait sections={state.portrait} onEvidence={onEvidence} />
+    <ResearchCoverage logs={state.logs} onSpans={onSpans} />
+    <ProfessionalPortrait sections={state.portrait} onEvidence={onEvidence} onSpans={onSpans} />
     <div className="grid grid-cols-3 gap-3">{[{ value: evidenceCount, title: "Captured outputs" }, { value: anchors.length, title: "Identity anchors" }, { value: artifacts.length, title: "Public artifacts" }].map((stat) =>
       <div key={stat.title} className="glass-card p-4"><p className="font-mono text-2xl text-zinc-200">{String(stat.value).padStart(2, "0")}</p><p className="mt-1 text-[10px] text-zinc-500">{stat.title}</p></div>)}</div>
     <div className="grid gap-4 xl:grid-cols-[1.35fr_1fr]">

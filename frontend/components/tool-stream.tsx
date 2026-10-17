@@ -5,6 +5,7 @@ import { Terminal, Check, AlertTriangle, LoaderCircle, Pause, ChevronRight, Arro
 import type { ArcEvent, InvestigationState } from "@/lib/investigation";
 import { activityLabel, provider, toolLabel, toolResults } from "@/lib/presentation";
 import { AgentResponse } from "./agent-response";
+import { ResearchProgress } from "./research-progress";
 import { HumanReview } from "./review-panel";
 
 function ToolCard({ event, result, state, onEvidence }: {
@@ -23,7 +24,7 @@ function ToolCard({ event, result, state, onEvidence }: {
         {failed ? <AlertTriangle size={14} /> : paused ? <Pause size={14} /> : pending ? <LoaderCircle size={14} className="activity-spin" /> : result ? <Check size={14} /> : <Pause size={14} />}
       </span>
       <span className="min-w-0 flex-1"><span className="block truncate text-xs font-medium text-zinc-200">{toolLabel(event.tool)}</span>
-        <span className="mt-1 block truncate text-[10px] text-zinc-500">{provider(event.tool)} · {event.subagent === "orchestrator" ? "Lead agent" : event.subagent ? "Harvester" : "Agent"}</span></span>
+        <span className="mt-1 block truncate text-[10px] text-zinc-500">{provider(event.tool)} · {event.subagent === "operator" ? "Operator lookup" : event.subagent === "orchestrator" ? "Lead agent" : event.subagent ? "Harvester" : "Agent"}</span></span>
       <span className="shrink-0 text-right text-[10px] text-zinc-500"><span className={failed ? "text-rose-400" : pending ? "text-amber-300" : "text-zinc-400"}>{label}</span>
         {duration !== null && <span className="mt-1 block font-mono">{duration.toFixed(1)}s</span>}</span>
     </summary>
@@ -49,6 +50,8 @@ export function ToolStream({ state, visible, onEvidence, answer }: { state: Inve
   const paused = state.prompts.length > 0 || state.connection === "reconnecting";
   const results = useMemo(() => toolResults(logs), [logs]);
   const calls = logs.filter((event) => event.type === "tool.started");
+  const failures = logs.filter((event) => event.type === "investigation.failed");
+  const latestFailure = failures.at(-1);
   const start = logs.find((event) => event.type === "investigation.started")?.timestamp;
   const end = [...logs].reverse().find((event) => ["investigation.complete", "investigation.failed", "investigation.cancelled"].includes(event.type))?.timestamp;
   const elapsed = start ? Math.max(0, Math.floor((end ?? (active && now ? now : start)) - start)) : 0;
@@ -69,11 +72,25 @@ export function ToolStream({ state, visible, onEvidence, answer }: { state: Inve
       {!logs.length && <div className="py-20 text-center"><Terminal size={28} className="mx-auto mb-4 text-zinc-700" />
         <p className="text-2xl font-medium tracking-tight text-zinc-200">Who would you like to understand?</p>
         <p className="mx-auto mt-4 max-w-sm text-sm leading-relaxed text-zinc-500">Start with a name and context, or a public profile. We’ll follow the sources together.</p></div>}
+      <ResearchProgress logs={logs} />
       {logs.map((event, index) => {
+        if (event.type === "case.ready" || event.type === "source.started" || event.type === "source.complete") return <p key={index} className="py-2 text-sm text-zinc-400">{event.text}</p>;
+        if (event.type === "source.failed" || event.type === "source.cancelled") return <p key={index} role="alert" className="py-2 text-sm text-amber-300">{event.error}</p>;
         if (event.type === "investigation.started" || event.type === "user.message") return <div key={index} className="flex justify-end py-4"><p className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-tr-sm bg-white/6 px-4 py-3 text-sm leading-relaxed text-zinc-200">{event.text || event.target}</p></div>;
         if (event.type === "conversation.failed" || event.type === "conversation.cancelled") return <p key={index} role="alert" className="py-2 text-xs text-amber-300">{event.error || event.text}</p>;
         if (event.type === "tool.started") return <ToolCard key={event.tool_use_id || index} event={event} result={results.get(event.tool_use_id || "")} state={state} onEvidence={onEvidence} />;
-        if (["evidence.skipped", "investigation.failed"].includes(event.type)) return <div key={index} className="rounded-lg border border-rose-900/60 bg-rose-950/15 p-3 text-xs text-rose-300"><p className="flex items-center gap-2"><AlertTriangle size={13} />{toolLabel(event.tool) || "Investigation"}</p><p className="mt-2 leading-relaxed">{event.error || event.reason}</p></div>;
+        if (event.type === "investigation.failed") {
+          if (event !== latestFailure) return null;
+          return <div key={index} aria-label="Investigation stopped" className="rounded-lg border border-rose-900/60 bg-rose-950/15 p-3 text-xs text-rose-300">
+            <p className="flex items-center gap-2"><AlertTriangle size={13} />Investigation stopped</p>
+            <p className="mt-2 leading-relaxed">{event.text || event.error || event.reason}</p>
+            {failures.length > 1 && <details className="mt-3 text-zinc-400">
+              <summary className="cursor-pointer">Earlier error details ({failures.length - 1})</summary>
+              {failures.slice(0, -1).map((failure, i) => <p key={i} className="mt-2 break-words">{failure.phase ? `${failure.phase}: ` : ""}{failure.text || failure.error || failure.reason}</p>)}
+            </details>}
+          </div>;
+        }
+        if (event.type === "evidence.skipped") return <div key={index} className="rounded-lg border border-rose-900/60 bg-rose-950/15 p-3 text-xs text-rose-300"><p className="flex items-center gap-2"><AlertTriangle size={13} />{toolLabel(event.tool) || "Evidence"}</p><p className="mt-2 leading-relaxed">{event.text || event.error || event.reason}</p></div>;
         if (event.type === "agent.text") return <AgentResponse key={index} text={event.text || ""}
           label={event.subagent && event.subagent !== "orchestrator" ? "Source harvester" : "ARC"}
           streaming={active && !paused && index === logs.length - 1} />;

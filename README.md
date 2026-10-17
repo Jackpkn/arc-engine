@@ -1,7 +1,230 @@
 # ARC Engine
 
-FastAPI → Claude Agent SDK → OSINT MCP tools → evidence scratchpad → structured
-graph architect → Neo4j.
+**Search provider update (October 17, 2026):** You.com is the primary web-search
+tool. Exa is removed from the callable MCP tools, agent allowlist and Python
+dependencies. Historical Exa evidence, citations and receipts are preserved.
+The free-source workbench remains available; You.com Web Search no longer needs per-call confirmation. During a user-started investigation, ARC may choose configured public-source tools
+and follow relevant leads without separate lookup prompts, within existing budgets
+and provider controls. Starting a Claude verification run still requires explicit
+authorization. See the You.com setup section below.
+
+FastAPI → Claude Agent SDK + OSINT MCP harvesting → SQLite evidence case →
+bounded recursive workers and critic → reviewed graph + cited portrait → Neo4j.
+
+## Inspect the recursive workflow in the normal workspace
+
+Open [ARC](http://localhost:3000) with the API running on port 8000. Click
+**Review saved Pawan kumar evidence · no credits** in Conversation. This starts
+the cached review through the same investigation creation, SSE and history routes
+as normal research; no file upload or separate replay screen is needed.
+
+- Conversation shows three waves, eight tasks, review/recovery decisions and the
+  stop reason. The cached run deliberately uses reviewed deterministic fixtures;
+  simulated outages are labeled. It is not a fresh model investigation.
+- Dossier includes Stela, Flightdeck and Open Agent Network. Click a claim in
+  **What the evidence supports**, a claim card, or **Inspect exact passages** in
+  a portrait section. The drawer shows source text, the support badge, original
+  collection date, source URL, JSON pointer, character offsets when present,
+  snapshot hash and unresolved gaps. JSON text fields display readably while the
+  full captured record remains expandable.
+- Graph node clicks and the **Inspect node** selector open the same drawer.
+  Cached graphs are explicitly uncommitted previews. Reloading or reopening
+  history reuses the saved events and case without restarting research.
+- Four portrait sections reuse the previously paid model response, remapping
+  citations only to hash-identical sources. Builder Velocity is visibly
+  insufficient because the saved response omitted its passage citations.
+  These are model interpretations, not independently established judgments.
+
+The cached action uses session `543e4074-d81b-4ec5-993d-d23c36794c83`, reads its
+saved source snapshots, and writes a new local review case/history. It makes no
+model, scraper, GitHub or Neo4j calls and does not access the private journal.
+Follow-up model chat is disabled for this mode. Saved portrait inputs default to
+`/private/tmp/arc-cached-model-eval` (`ARC_CACHED_MODEL_EVAL_DIR` override); if those
+artifacts are unavailable, portrait sections are reported missing. Existing
+completed review events retain their displayed portrait across API restarts.
+
+Normal **Investigate** now calls `research/pipeline.py`: existing SDK harvesting
+followed by the recursive scheduler, focused model workers/critic, cited portrait,
+and a reviewed graph commit. Source acquisition remains the existing harvest
+stage; recursive workers inspect the captured case, without making additional
+source calls. This new paid path has not been exercised end to end. Browser
+verification uses only the cached path; starting normal research still spends
+provider/model credits and requires the user's authorization.
+
+Retrieval uses case-scoped SQLite FTS5 (`bm25`, strict terms then keyword OR
+fallback), prioritizes explicitly cited passages and linked repository sections,
+and stores large exclusion manifests locally instead of in the model prompt.
+This is lexical retrieval, not semantic embeddings. Local JSON normalization
+accepts whole Markdown fences and trailing commas outside strings; schema,
+scope, citation and review checks remain mandatory. Missing evidence is never
+invented to repair an output. [SQLite FTS5 documentation](https://www.sqlite.org/fts5.html)
+was consulted October 15, 2026.
+
+Verification (October 16): 69 backend tests, ESLint, production build, browser
+clicks through the actual FastAPI/SSE workspace, saved-session reload and mobile
+overflow checks. The
+browser receipt is `/private/tmp/arc-workspace-browser.json`; case artifacts are
+under `.arc/research/<review-session-id>/`. The browser check can be repeated
+without starting another review:
+
+```sh
+node frontend/scripts/check-workspace-research.mjs <completed-review-session-id>
+```
+
+It requires the local app/API and an isolated Chrome debugging session on port
+9223. Its request guard rejects fresh investigations and external requests.
+
+Operator identity choices are retained as context through extraction, workers
+and critic; identity-search snippets stay in the source snapshot but are excluded
+from claim packets. They are not independent corroboration. Failed/cancelled
+research persists reported costs too; unknown receipts block follow-ups and the
+UI explicitly labels the displayed known partial cost as incomplete.
+
+## Product studio — October 15, 2026
+
+Open `/studio` for the sharp, colorful product mockup: interpretation-led
+fictional profiles, short onboarding steps, a blank journal and time-based
+judgment confidence. Humans contribute evidence; the agent authors the judgment.
+There are no permission, approval or owner-written judgment flows in this studio.
+Its drafts stay in tab memory and disappear on reload; it makes no
+research, model, connector or journal API calls. The working local-agent
+simulation remains at `/pilot`.
+
+- [Founder requirements, objectives and next judgment-layer work](docs/arc-product-requirements.md)
+
+## Three-agent local pilot — October 15, 2026
+
+Open `/pilot` from the sidebar to try a fictional three-person collaboration.
+The pilot has separate gates for confidential context exchange under a standing
+mandate and human-visible release. It uses the existing loopback model adapter,
+requires no paid research or Neo4j, and blocks rather than simulating success when
+the local model is unavailable. One browser controls all three fictional people;
+this is not a deployment for real confidential peer journals.
+
+- [Concrete development plan and local setup](docs/three-agent-pilot-plan.md)
+- [Current capabilities and appearance in plain English](docs/pilot-in-plain-english.md)
+
+The private vault currently uses file permissions and separate storage, **not
+encryption at rest**. Keep the API on loopback. Existing public-profile approval
+remains separate from the pilot's circle-specific mandate.
+
+
+## Evidence workbench — October 17, 2026
+
+Open **Evidence** in the workspace, or **Or start with free source lookups** from
+the new-investigation screen. Create a named evidence case without starting
+Claude, requiring paid credentials, or committing a Neo4j profile. Choose each
+free lookup explicitly. The regular Conversation workflow remains available for
+an authorized, budgeted model-assisted investigation.
+
+This adapts the useful workflow described in the supplied WebVetted investigation:
+saved lookups, on-demand expansion, source provenance, coverage and report reuse.
+The shared ChatGPT URL was blocked by a browser challenge; the attached findings
+and public WebVetted pages were read. Its reported single negative-control test
+and advertised source counts are not an accuracy or vendor-coverage benchmark.
+ARC does not claim equivalent paid-data coverage or a calibrated identity score.
+
+The shipped changes are:
+
+- **Explicit free collection:** web discovery/Google queries, Sherlock or Maigret,
+  certificate records, Crossref, public DNS and Internet Archive CDX. The catalog
+  shows local installation availability separately from actual lookup outcomes.
+  Lookups use the existing MCP source cache and the original source dates.
+- **Saved evidence ledger:** source arguments, original collection/retrieval
+  times, reuse, raw-output inspection, explicit source URLs with JSON field paths,
+  and links to the committed graph nodes that actually cite each record. Repeated
+  snapshots or different tools returning the same underlying source do not become
+  independent corroboration.
+  Selected professional fields are also displayed verbatim with payload paths
+  (for example DNS answers or publication titles), before opening raw JSON.
+- **Payload integrity:** new captures record a SHA-256 of compact, sorted-key,
+  UTF-8 JSON. The ledger recomputes it for inspection. Legacy records without a
+  capture-time digest are labeled; no retroactive integrity seal is invented.
+  Mismatched recorded digests are excluded from future model evidence. A checksum
+  protects payload consistency, not the truth of a source or external notarization.
+- **Actual coverage:** captured, failed, not-captured and unfinished tool attempts
+  are distinguished from unqueried tools. Counts include cache reads and describe
+  this case only. No "all sources checked" percentage or automatic credibility
+  rating is generated. Paid-source breadth is not inferred from configured keys.
+- **On-demand pivots:** an explicitly returned source URL can prefill a domain DNS
+  lookup. Nothing is fetched until the operator submits it. A hostname or matching
+  handle does not establish employment, ownership or personal identity.
+- **Snapshot comparison:** matching tool/argument records show payload changes and
+  added/removed explicit URLs. Fresh collection requires an explicit choice. A
+  changed payload (including a DNS TTL) is not a changed identity claim. No periodic
+  monitoring, arbitrary cache TTL or background refetching was enabled.
+- **Assessment separation:** additional source records do not rewrite the committed
+  profile or score, or appear as committed identity edges. The ledger identifies
+  records added since the assessment. A later authorized follow-up receives newly
+  captured evidence even when resuming its existing SDK session; cumulative usage
+  accounting and remaining-budget checks are preserved.
+- **Portable reports:** Evidence JSON includes source records and the latest
+  committed assessment; Markdown reports describe scope, provenance and outcomes.
+  Existing Maltego CSV export remains available after a graph commit. Export code
+  reads research evidence, not private journal storage or peer claims.
+
+Source requests have persistent request IDs. Duplicate submissions return the
+existing operation; a changed request cannot reuse the same ID. An interrupted
+operation is marked interrupted on recovery, never resumed. A failed/uncertain
+source-cache outcome is not silently retried. Only cataloged free tools can be
+called through this endpoint; clients cannot supply arbitrary commands, paid
+tool names, MCP servers or extra provider parameters.
+
+Relevant endpoints:
+
+```text
+GET  /api/sources/catalog
+POST /api/cases
+GET  /api/investigate/{session_id}/ledger
+POST /api/investigate/{session_id}/sources
+GET  /api/investigate/{session_id}/exports/report.json
+GET  /api/investigate/{session_id}/exports/report.md
+```
+
+Public DNS uses Google's documented JSON DoH endpoint and one selected record
+type. Resolver failure/truncation is an error; DNS answers are not person
+verification. CDX queries read a bounded archive index, with a caller-selected
+result limit, without fetching archived pages. Provider/library timeout and
+request defaults remain distinct from the application's evidence storage bound.
+Availability/rate limits can still cause failures; the UI reports those outcomes.
+
+Offline tests exercise the complete case → lookup → ledger → export → restart
+path, duplicate/changed request IDs, real MCP caching with intercepted source
+transport, interruption recovery, payload tampering, source failures, and resumed
+chat evidence/cost increments. No real Claude session or paid lookup is used in
+those tests.
+All 24 backend tests, frontend lint and production build passed. A real browser
+created an example.com verification case and collected a DNS answer through the
+production MCP/cache path, with no model call. The saved record and source receipt
+are retained locally; the archive adapter has offline protocol coverage, not a
+claimed successful live archive fetch.
+
+### Paid coverage options for later approval
+
+These are proposals, not installed integrations or permission to run lookups.
+The current Exa, Apify, Firecrawl and Claude settings/budgets were not expanded.
+
+| Option | What it would add | Required decision before implementation/live verification |
+| --- | --- | --- |
+| OSINT Industries | Authorized email/phone/account discovery beyond public username checks | Account plan, permitted use, retention terms, available endpoints, per-lookup/monthly allowance and a consented test identifier; actual account limits/credit behavior must be checked |
+| Have I Been Pwned | Breach-exposure metadata for consented identifiers or verified organizational domains | Subscription tier, API key, supported scope, authorization/domain verification where applicable, request allowance and an approved test; no credential/password corpus collection |
+| You.com / Firecrawl / Apify | More extensive web retrieval and supported profile/post extraction | Resolve the pending You.com/Firecrawl allowances and approve each live verification/investigation; existing keys do not authorize spending |
+
+My order would be to measure discovery quality on consented examples first, then
+evaluate OSINT Industries for identifier breadth and HIBP for exposure metadata
+if those jobs are part of ARC's intended scope. Commercial address/associate
+data and facial identification are not implemented by these public-source tools.
+No new provider rates, account quotas or spending ceilings are assumed. A real
+accuracy/coverage comparison needs a consented test set with known ground truth;
+it cannot be concluded from a visually richer report.
+
+References reviewed October 17, 2026:
+[WebVetted Workbench](https://webvetted.com/workbench),
+[WebVetted username workflow](https://webvetted.com/detect/username),
+[Google Public DNS JSON API](https://developers.google.com/speed/public-dns/docs/doh/json),
+[Internet Archive CDX server](https://github.com/internetarchive/wayback/tree/master/wayback-cdx-server),
+[OSINT Industries API introduction](https://docs.osint.industries/reference/getting-started),
+[HIBP API and plan-specific access](https://haveibeenpwned.com/API/v3).
 
 ## Core profile workflow — October 15, 2026
 
@@ -81,6 +304,21 @@ is local to the **machine running the API**, not automatically every visitor's
 device. Remote pairing/decentralized transport remains future work; this is the
 single-device claim/journal/representation path.
 
+## Dynamic research decisions
+
+Live claim extraction uses the current request and collected case passages, with
+source-diverse selection and a local omission manifest. It does not require a
+particular person, named project or developer keyword. Sources and claim text
+come from the investigation; no saved demonstration is substituted into a live run.
+The named saved-profile replay is a separately labeled deterministic demo.
+
+Some operating limits remain fixed to the previously reviewed budget envelope:
+SDK turn limits, research task/wave limits and packet bounds. The case-review model
+adapter still supports only its reviewed model/rates; it is not a generic
+configurable model adapter. Provider URLs, validation schemas and these explicit
+limits are not inferred facts about a subject. Removing all constants or expanding
+limits is not part of the dynamic-evidence change.
+
 ## Run
 
 The existing Python 3.13 uv environment and resolved dependencies are preserved.
@@ -91,7 +329,6 @@ Configure your local `.env` (already ignored by git):
 
 ```dotenv
 ANTHROPIC_API_KEY=...
-EXA_API_KEY=...
 APIFY_API_TOKEN=...
 # Approved per-run event-charge allowance (separate platform/storage charges excluded):
 APIFY_MAX_TOTAL_CHARGE_USD=0.03
@@ -102,6 +339,8 @@ NEO4J_PASSWORD=...
 # Optional integrations; mounted when their keys are configured:
 FIRECRAWL_API_KEY=...
 GITHUB_TOKEN=...
+# Optional You.com Web Search key (routine search use authorized):
+YDC_API_KEY=...
 
 # User-selected default model (optional override):
 CLAUDE_MODEL=claude-haiku-5-5
@@ -120,12 +359,12 @@ OSINT_MCP_URL=http://127.0.0.1:8001/mcp
 `NEO4J_USERNAME` is the preferred setting; `NEO4J_USER` remains a supported alias.
 The SDK also supports its existing Claude authentication. Use a GitHub token
 restricted to public-source access. The SDK budget threshold covers harvesting
-the architect pass and follow-up replies; it excludes Exa, Apify and Firecrawl charges and is not a
+the architect pass and follow-up replies; it excludes You.com, Apify and Firecrawl charges and is not a
 hard prepaid cap. Haiku 5.5 is the user-selected default; per-role overrides take
 precedence over `CLAUDE_MODEL`. The API rejects new investigations without an
 explicit spending threshold. Model/budget configuration is not permission for a coding
 agent to run Claude: explicit user approval is required for that run, including
-tests. See [AGENTS.md](AGENTS.md). Account limits and Exa/Firecrawl spending allowances
+tests. See [AGENTS.md](AGENTS.md). Account limits and You.com/Firecrawl spending allowances
 remain undecided.
 
 On October 14, 2026, the user authorized a Claude threshold below $2 and delegated
@@ -136,7 +375,7 @@ for ARC's maximum ten posts before startup charges; $0.03 leaves startup headroo
 The configured no-email profile mode lists
 [$4 per 1,000 profiles](https://apify.com/harvestapi/linkedin-profile-scraper), or
 $0.004 for the single requested profile. These are application allowances, not
-price guarantees or an aggregate $2 ceiling: repeated actor runs, Exa, Firecrawl,
+price guarantees or an aggregate $2 ceiling: repeated actor runs, You.com, Firecrawl,
 separate platform charges and SDK budget overshoot are not jointly capped.
 
 Start the unified custom MCP server:
@@ -170,7 +409,9 @@ local request does not guarantee that its remote actor stops or avoids charges.
 
 ## Files
 
-- `backend/mcp_servers/osint_mcp.py`: the four custom tools in one FastMCP server.
+- `backend/mcp_servers/osint_mcp.py`: public-source tools in one FastMCP server.
+- `backend/osint_tools.py`: isolated Sherlock, Maigret and theHarvester adapters plus Google query links.
+- `backend/maltego.py`: offline CSV export of committed public graphs.
 - `backend/agent.py`: registry of real MCP integrations.
 - `backend/orchestrator.py`: stateful `ClaudeSDKClient`, native harvester, hooks, human input and budget handoff.
 - `backend/conversation.py`: evidence-only follow-up sessions and incremental cost accounting.
@@ -330,17 +571,176 @@ and [CLI reference](https://nextjs.org/docs/app/api-reference/cli/create-next-ap
 
 | Server | Tools / transport |
 | --- | --- |
-| ARC custom server | `search_identity_exa`, `scrape_linkedin_profile`, `scrape_linkedin_posts`, `inspect_github_developer_profile`; Streamable HTTP on port 8001 |
+| ARC custom server | Free web search, Sherlock/Maigret username leads, theHarvester crtsh records, Crossref publications, plus You.com web search, LinkedIn and GitHub tools; Streamable HTTP on port 8001 |
 | Firecrawl | `firecrawl_scrape`; SDK-managed `npx -y firecrawl-mcp` stdio process |
 | GitHub official | Allowlisted repository, commit, issue and PR reads; hosted read-only HTTP endpoint |
 | Neo4j official | `get-schema`, `read-cypher`; `python -m neo4j_mcp_server` stdio using the configured Aura database credentials |
+| Robin optional | Official Docker MCP, only `robin_search` and `robin_scrape`; no extra model tools, API keys or host file mounts |
 
-The SDK mounts OSINT, Firecrawl and GitHub through local FastMCP caching proxies.
+The SDK mounts OSINT, Firecrawl, GitHub and optional Robin through local FastMCP caching proxies.
 Their original upstream transports and tools remain as listed above; Neo4j stays
 direct and uncached. The proxy follows FastMCP's documented
 [proxy provider](https://gofastmcp.com/servers/providers/proxy) and
 [tool middleware](https://gofastmcp.com/servers/middleware) interfaces, checked
 against the installed FastMCP 4.1 API on October 15, 2026.
+
+## Free OSINT integrations — checked October 17, 2026
+
+You.com is the primary search provider for authorized paid research. The optional
+free workbench uses keyless DDGS metasearch. `search_public_web` accepts
+`auto` (library default), `brave`, `yahoo`, `duckduckgo`, or `google`; the latter
+executes Google queries including public professional dorks. Engine operator
+support and availability vary. A failure never silently falls back to a paid provider.
+Google links in Investigation details are generated locally; only a completed
+search tool call is evidence. No CAPTCHA bypass or paid search proxy is configured.
+
+| Integration | Use in ARC | Cost and scope |
+| --- | --- | --- |
+| DDGS | Public discovery and Google dork queries | No API key; engine rate limits/blocks still apply |
+| Sherlock | Check a sourced username on explicitly selected professional sites | Local CLI; matches are unverified leads |
+| Maigret | Alternative username checker, with site-name mapping | Local CLI; recursion, profile extraction and AI analysis disabled |
+| theHarvester | Public certificate hostnames for a sourced company/project domain | Only free `crtsh`; no email/breach collection, paid source or active scanning |
+| Crossref | Publication titles, authors, dates, affiliations and deposited ORCID links | Public REST API, no sign-up/key; namesakes must be disambiguated |
+| Robin | Optional public professional threat-intelligence searches and Tor page reads | Official container; only search/scrape, no extra LLM calls |
+| Maltego | Import ARC's public committed graph for visual analysis | Offline CSV bridge; no paid Maltego transforms/API integration |
+
+Sherlock and Maigret accept explicit `sites` from `GitHub`, `GitLab`, `BitBucket`,
+`Docker Hub`, `Hugging Face`, `Kaggle`, `PyPi`, `npm`. ARC maps the differing
+Maigret names internally. Use one checker when sufficient. A shared username,
+certificate hostname or author name never independently verifies an identity.
+Local CLI processes run in temporary working/config directories without inherited
+API keys. They retain upstream request/timeout defaults; no provider quotas are
+invented. Cancellation terminates the local process. The existing 500,000-byte
+evidence allowance also bounds CLI reports; oversized reports are refused whole.
+theHarvester must produce a completed crtsh execution in its JSONL receipt before
+ARC accepts hostnames. Blocked/partial/failed runs are not absence evidence.
+
+Free-source reads use ARC's durable source cache, keeping original collection
+dates and reuse annotations. No arbitrary TTL is added. Failed/uncertain calls
+remain blocked until an explicit fresh-source request. Robin setup/outage replies
+are rejected before caching or evidence capture; use explicit returned URLs, not
+session-local result IDs when scraping cached Robin search results.
+
+### Running integration verification — October 17, 2026
+
+The merged integration workspace requires its own ignored tool installations;
+merging a PR does not copy `.arc/bin`, isolated environments or Docker images.
+Sherlock 0.16.2, Maigret 0.6.6 and the pinned theHarvester 5.0.0 are now installed
+in `/private/tmp/arc-integration-20261017/.arc/`. The pinned Robin image is present
+and `ARC_ROBIN_ENABLED=1` is set in the ignored local environment.
+
+Checks against the real running MCP server (no model calls or paid source calls):
+
+| Tool | Observed result |
+| --- | --- |
+| Sherlock / Maigret | Each returned the supplied Jackpkn GitHub account; one site per check |
+| theHarvester | Completed crtsh collection for example.com; one hostname returned |
+| DDGS auto search | Seven public documentation search results; individual engines may still block |
+| Crossref | Twenty publication records using the provider default response size |
+| DNS | Two A records for example.com |
+| Internet Archive | One archived HTML page after fixing the client read timeout |
+| Robin | One example.com page read through Tor; production proxy repeat was a cache hit |
+| Maltego | Six CSV rows exported from the already committed public dossier |
+| GitHub / Firecrawl / Neo4j | MCP connection and tool discovery passed; no new scraping or writes |
+
+Robin search itself is not yet live-verified here: its upstream tool requires a
+user-selected research domain. No `user_chose=true` claim was fabricated. Only
+search and scrape are permitted to research agents; Robin model tools remain denied.
+Existing Exa/Apify and other paid-source verification receipts remain historical
+checks, not new verification from this milestone.
+
+Two integration fixes were needed. The archive adapter now uses a 60-second
+client timeout matching the documented
+[WaybackSession default](https://wayback.readthedocs.io/en/stable/usage.html#wayback.WaybackSession),
+rather than HTTPX's generic five seconds. This is a client setting, not a provider
+quota or SLA; timeouts remain failures with no automatic retry. Robin now retains
+one MCP connection per cache-proxy process and polls its local `robin_health`
+without engine or model probes before the first uncached read. This follows the
+[pinned upstream startup behavior](https://github.com/apurvsinghgautam/robin/blob/main/entrypoint.sh)
+and its documented [MCP startup/tool windows](https://github.com/apurvsinghgautam/robin#robin-as-mcp):
+60 seconds for startup, 600 seconds per tool. Only readiness is polled; source
+operations are not automatically repeated. Cached reads preserve `observed_at`.
+The connection/container is closed with the proxy, without host mounts or keys.
+
+Receipts, original failures and successful post-fix results are in the running
+workspace's ignored `.arc/verification/tools-20261017/`. All 99 backend offline
+tests pass. The actual browser displays the three local tools as installed;
+verification did not start an investigation. These are representative checks,
+not a guarantee that every site will respond or that every username match is correct.
+
+### Local installation
+
+These tools are isolated from ARC's Python dependencies in ignored `.arc/tools`
+and `.arc/bin`. They were installed and their help/report interfaces checked on
+October 17: Sherlock 0.16.2, Maigret 0.6.6, theHarvester 5.0.0 at official commit
+`49a38f8d33c32336bbf6a111ea723ea223116265`; ARC's lockfile resolves DDGS 9.16.0.
+theHarvester currently requires Python 3.14, so it uses a separate tool environment.
+To reproduce the local installations from the repository root:
+
+```bash
+uv sync --locked
+UV_TOOL_DIR="$PWD/.arc/tools" UV_TOOL_BIN_DIR="$PWD/.arc/bin" uv tool install sherlock-project==0.16.2
+UV_TOOL_DIR="$PWD/.arc/tools" UV_TOOL_BIN_DIR="$PWD/.arc/bin" uv tool install maigret==0.6.6
+UV_TOOL_DIR="$PWD/.arc/tools" UV_TOOL_BIN_DIR="$PWD/.arc/bin" uv tool install --python 3.14 'git+https://github.com/laramies/theHarvester.git@49a38f8d33c32336bbf6a111ea723ea223116265'
+docker pull apurvsg/robin@sha256:579aae11b9100078ecd0d700f4057117e3ded6f37a37d7dfdf773bfcceded5c0
+```
+
+ARC discovers `.arc/bin` automatically; PATH changes are unnecessary. Optional
+absolute executable overrides are `ARC_SHERLOCK_BIN`, `ARC_MAIGRET_BIN`, and
+`ARC_THEHARVESTER_BIN`. Keep secrets in the ignored `.env`. The supplied attachment
+was copied there with owner-only permissions; its existing budgets and provider
+keys were preserved. Free-source integration does not authorize a Claude session
+or expand any investigation budget.
+
+Set `ARC_ROBIN_ENABLED=1` to expose Robin to research agents. Docker must be running
+and the pinned official image downloaded first: ARC uses `--pull=never`, never mounts the
+host `.env`, and does not enable Robin's refine/filter/investigate/model tools.
+Tor bootstrap and engine availability can still delay or block a source call.
+Robin should be used only for an explicitly requested public professional
+threat-intelligence question, not routine identity profiling. This optional
+provider does not install or invoke a separate paid model.
+The local environment now enables it. The downloaded image digest is
+`sha256:579aae11b9100078ecd0d700f4057117e3ded6f37a37d7dfdf773bfcceded5c0`.
+
+### Availability and exports
+
+`GET /api/tools` reports installed local executables and integration modes without
+contacting providers. Investigation details shows local readiness and source
+activity. `GET /api/tools/google-dorks?subject=Public%20Person&domain=example.org`
+generates public-profile/PDF search links without executing them.
+
+After a graph commit, use **Download Maltego CSV** in Investigation details, or
+`GET /api/investigate/{session_id}/exports/maltego.csv`. In Maltego Desktop choose
+**Import Graph → Import a 3rd Party Table**. Map `source_id` and `target_id` to
+separate entities (Phrase is suitable for generic ARC nodes), titles to their
+display values, URLs/evidence states to properties, and `relationship`/`reason`
+to a link. Map `evidence_ids` as a provenance property. Rows with an empty target
+represent isolated nodes. Only the committed public graph is exported; journal
+notes, peer claims and uncommitted proposals are excluded. CSV formula-like
+values are escaped. Maltego licensing/transform access remains separate.
+
+Verification used no Claude, Exa, Apify, Firecrawl or paid source calls. Free live
+checks passed for DDGS metasearch (ten results at the library's default),
+Sherlock (one GitHub site), Maigret (one GitHub site),
+theHarvester (crtsh for example.com), and Crossref (publication metadata).
+Direct Google and DuckDuckGo requests did not yield usable results in this
+environment; this is a search-availability limitation, not proof of no matches.
+Robin's actual container also passed MCP tool discovery; no Robin search or scrape
+was performed. All 18 offline tests and frontend lint/production build passed.
+The offline suite covers subprocess credential isolation, literal argv, report
+parsing, failed-source handling, MCP tool wiring, Robin's allowlist, and public-only
+Maltego export. No complete Claude-driven investigation was launched.
+
+Official sources reviewed October 17, 2026:
+
+- [Sherlock source and CLI](https://github.com/sherlock-project/sherlock)
+- [Maigret source and reports](https://github.com/soxoj/maigret)
+- [theHarvester source and passive sources](https://github.com/laramies/theHarvester)
+- [Robin MCP transport and tools](https://github.com/apurvsinghgautam/robin)
+- [DDGS backends and defaults](https://github.com/deedy5/ddgs)
+- [Crossref REST API](https://www.crossref.org/documentation/retrieve-metadata/rest-api/)
+- [Google search operators](https://support.google.com/websearch/answer/2466433?hl=en)
+- [Maltego table import](https://docs.maltego.com/support/solutions/articles/15000010797-import-graph-3rd-party-table)
 
 ## Permanent history and source reuse
 
@@ -401,17 +801,14 @@ inspection returns recently updated repositories, a bounded public-event sample,
 and commit-author email **domains** with source links. These are attribution
 signals, not verified identities or a measurement of total commit velocity.
 
-Exa's web search tool follows the installed
-[build-with-exa skill](.agents/skills/build-with-exa/SKILL.md): async `/search`,
-`type="auto"`, and `contents={"highlights": True}`. It uses Exa's default result
-count and returns titles, URLs, highlight-based snippets and available publication
-dates. Claude handles the analysis; no separate Exa answer or research workflow
-is invoked. No category, domain, date or cache-age filters are imposed.
-`uv run --env-file .env` supplies the existing `EXA_API_KEY` to the MCP process;
-the key stays out of source code and tool results.
+You.com supplies public web/news discovery through `search_web_you`. The retired
+Exa adapter and dependency have been removed. Old Exa snapshots remain labeled as
+historical evidence, and the cache retains its legacy fingerprint format so this
+change does not invalidate other saved paid sources. The API passes an opaque
+cache namespace to proxy processes; it no longer explicitly forwards an Exa key.
 
 Firecrawl follows the installed
-[firecrawl-build skill](.agents/skills/firecrawl-build/SKILL.md). Exa discovers
+[firecrawl-build skill](.agents/skills/firecrawl-build/SKILL.md). You.com discovers
 URLs; Claude calls the official `firecrawl_scrape` MCP tool for public blogs,
 portfolios and websites, requesting Markdown page content. Successful responses
 enter the evidence scratchpad through the SDK's tool-result hook. The existing
@@ -457,15 +854,13 @@ account-wide throttling. No paid provider calls were made during this review.
 
 | Service | Official guidance relevant to ARC | Current handling / pending decision |
 | --- | --- | --- |
-| Exa | Default `/search` limit is 10 queries/second shared by the team; individual keys can have lower limits. HTTP 402 means exhausted credits/key budget; 429 means rate limiting. [Docs](https://exa.ai/docs/admin/billing) | Basic `auto` search with highlights, provider-default result count. Distinct billing/rate errors; no application retry loop. Account allowance pending. |
 | Apify | Default resource limit is 60 requests/second; actor-start endpoints allow 400. `X-RateLimit-Limit` identifies the endpoint limit. Actor concurrency/memory and pricing are separate. [API limits](https://docs.apify.com/api/v2#rate-limiting) | Both configured actors use pay-per-event pricing. Calls require `APIFY_MAX_TOTAL_CHARGE_USD`, passed as `max_total_charge_usd`; `max_items` alone is not a dollar cap. Profile requests explicitly disable email enrichment. [SDK parameters](https://docs.apify.com/api/client/python/reference/class/ActorClientAsync) |
 | Firecrawl | `/scrape` limits are 10/100/500/5,000/10,000 requests per minute for Free/Hobby/Standard/Growth/Scale, shared by the team. Browser concurrency is separate. [Rate limits](https://docs.firecrawl.dev/rate-limits) | Only the scrape tool is allowlisted. Basic page scraping costs one credit; options such as JSON extraction add credits, and a returned error page can still be billed. MCP argument restrictions and account throttling remain to be configured. [Billing](https://docs.firecrawl.dev/billing) |
 | GitHub | General REST limits are 60 requests/hour unauthenticated or 5,000/hour with a personal token; search has separate limits. [Limits](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api) | Custom-tool requests are serialized and an inspection stops on 403/429, reporting supplied retry/reset headers. This follows [GitHub's guidance](https://docs.github.com/en/rest/using-the-rest-api/best-practices-for-using-the-rest-api). The official MCP process has separate transport handling. |
 | Claude | Request, input-token and output-token limits depend on model and usage tier. [Rate limits](https://platform.claude.com/docs/en/api/rate-limits) | User-selected Haiku 5.5 default with optional per-role overrides. No invocation without explicit permission. Tier and budgets remain pending; no Anthropic verification requests were made. |
 | Neo4j Aura | Instance CPU, memory and transaction resources constrain workloads. [Instance resources](https://neo4j.com/docs/aura/managing-instances/instance-resources/) | Official MCP stdio access is registered read-only and live-verified. The graph architect still writes through the direct driver. Confirm instance capacity before setting workload limits. |
 
-Removed the hand-picked Exa 30-second and Apify 120/150-second overrides.
-Exa now uses the installed SDK's network timeout; Apify uses actor-configured
+Apify's hand-picked 120/150-second overrides were removed. It uses actor-configured
 runtime and its SDK's normal wait behavior. These defaults are not cost caps.
 Apify starts use the SDK's documented non-rewindable request body so the paid
 POST is sent once. The installed SDK rejects `max_retries=0`; read requests retain
@@ -578,3 +973,295 @@ it into chat. ARC uses it both for the custom public-profile REST tool and the
 official hosted MCP server, with read-only MCP tools allowlisted. Authentication,
 MCP tool discovery, one public file read and the custom public-profile tool were
 live-verified on October 14, 2026; no additional permissions were requested.
+
+## Cached model evaluation (October 15, 2026)
+
+One authorized recursive cache-only trial completed six model calls for
+$0.0070321 in usage-priced charges, with zero source calls or Neo4j writes.
+It exposed extraction coverage, retrieval and output-contract failures. The
+subsequent workspace integration above replaces the default route in code;
+no additional paid evaluation has been run. See the [full evaluation report](docs/cached-model-evaluation-2026-10-15.md).
+Do not rerun its paid command without new authorization.
+
+Provider parameters were checked against the official
+[Haiku 5.5 model/pricing documentation](https://platform.claude.com/docs/en/models/haiku-5-5/overview),
+[token counting documentation](https://platform.claude.com/docs/en/build-with-claude/token-counting),
+and [Messages API](https://platform.claude.com/docs/en/api/messages/create).
+The evaluation bounds individual requests and total call count; it does not rely
+on the SDK dollar threshold being a prepaid hard cap.
+
+
+## You.com Web Search integration (documentation checked October 17, 2026)
+
+`mcp__osint__search_web_you` is a real tool on the existing custom OSINT MCP
+server. It calls `POST https://ydc-index.io/v1/search` with the server-only
+`X-API-Key` header. Configure `YDC_API_KEY` in the ignored environment loaded by
+**both the API and OSINT processes**. The Agent SDK allowlist includes this tool
+only when the API process has a nonblank key; `/api/tools` reports configuration,
+not proof of a successful live search. Restart those processes after configuration.
+No additional provider SDK or MCP server is required.
+
+The browser playground is for interactive API exploration; ARC uses the REST
+contract. The hosted You.com MCP is another supported integration option, but a
+custom wrapper here retains ARC's existing exact-request cache, source receipts,
+no-retry behavior and narrow search-only exposure. This does not enable You.com's
+Answer, Research, full-page extraction, automated payments or account top-ups.
+
+Tool inputs: `query`, optional `count` (1-100 per section), `freshness`
+(day/week/month/year or an ascending YYYY-MM-DDtoYYYY-MM-DD range), mutually
+exclusive `include_domains`/`exclude_domains` (provider maxima 500/5000), and
+`strict_operators` (ARC defaults this to true so names/site constraints are not
+silently relaxed). With `count` omitted, the **provider default is 10 per section**,
+so one response may include up to ten web and ten news results. No pagination or
+extraction add-on is requested. Optional values are sent only when specified.
+HTTPX's existing five-second default timeout applies, also documented as the
+You Python SDK default; it is not a provider SLA. Timeout outcomes are unknown,
+not permission to start another paid search.
+
+Original result URLs, descriptions, snippets, page metadata and `search_uuid`
+remain available for evidence capture. `page_age` is unverified provider date
+metadata, not ARC's `observed_at` collection timestamp. Snippets are discovery
+leads; the live recursive claim extractor excludes this tool's snapshots just as
+it excludes historical Exa discovery snapshots. The investigator must inspect the underlying
+sources. The Evidence view labels snippets and provider dates, while the execution
+ledger identifies the provider as You.com. The manual **free-source** workbench
+continues to expose only free tools; this paid provider is not silently added there.
+
+The production cache fingerprints credentials without storing the key in plaintext,
+includes all search options in request identity, and preserves original observation
+dates on reuse. Adding or rotating a You key changes only You.com
+cache scope; existing Exa, Apify and other source cache namespaces remain intact. Failed,
+pending or unknown outcomes block implicit same-request retries. Explicit fresh
+research remains an operator decision; do not use it to blindly retry charges.
+
+**Published defaults versus account decisions:** the official billing page lists
+$5 per 1,000 Web Search calls ($0.005/call), with snippets and news included. Full
+page extraction has a separate live-page charge and is not enabled by this tool.
+The documented default self-serve search limit is 10 requests/second; enterprise
+limits may differ. ARC does not assume that this is your account's quota or choose
+a spending allowance. Your plan/credits and allowance remain pending. Calls are
+serialized in the OSINT process; numeric rate-limit headers and Retry-After are
+retained/obeyed to block later requests until the provider's reset time. This is
+not a distributed rate limiter or a global spend cap. Errors (including 401/402/
+403/422/429/5xx) are sanitized and never returned as successful evidence; no
+automatic retries or paid fallback from free search are enabled.
+
+**Verification:** eight offline tests cover the actual MCP registration and cache,
+HTTP contract, evidence capture, credential scoping, option-sensitive cache keys,
+invalid input, auth/credit/rate/provider errors, header-based cooldown, timeout and
+malformed-response retry blocking, and legitimate empty results. Live You.com verification passed October 17 (receipt below). A configured key is not authorization for a
+Claude session. The user subsequently authorized routine You.com Web Search
+without per-call confirmation; this does not enable other paid APIs or extraction add-ons.
+
+Official sources reviewed:
+- [Web Search API reference](https://you.com/docs/api-reference/search/v1-search)
+- [API authentication](https://you.com/docs/using-the-api/authentication)
+- [Billing and extraction charges](https://you.com/docs/administration/billing)
+- [Rate limits and response headers](https://you.com/docs/rate-limits)
+- [Python client defaults and retries](https://you.com/resources/web-search-api-python)
+
+Integration verification: full offline backend suite **106 passed**; frontend lint
+and TypeScript passed. The production Webpack build passed. Default Turbopack
+builds hit a local-port permission error in this execution environment (including
+the escalated attempt); no application build configuration was changed. Running
+API/MCP processes must be restarted to load this integration. No live You.com or
+Claude call was made during implementation.
+
+Exa retirement checks: the actual MCP server must not list or execute
+`search_identity_exa`, even if a legacy key remains in the local environment.
+Historical event labels, snapshot normalization and discovery exclusions retain
+the old tool identifier strictly for replay compatibility. No saved evidence or
+provider receipt was deleted. Live verification of You.com subsequently passed; see the receipt below.
+
+October 17 retirement verification: `uv sync --locked` removed exa-py and unused
+transitive packages; the full backend suite passed 107 tests, and frontend lint
+and TypeScript passed. The idle API and custom MCP services were reloaded. A
+metadata-only check of the running MCP server confirmed You.com registered and
+Exa absent; the API reported the You.com key configured and all seven saved runs
+preserved. Receipt: `.arc/verification/you-search-registration-20261017.json`.
+No source or model call was made. This verifies registration, not live search quality.
+
+The user removed You.com per-call confirmation on October 17. The prompt and
+tool description now reflect this standing permission for snippets-only searches.
+This change does not waive owner disclosure approval or model-spending rules.
+
+
+October 17 live You.com check: one real `search_web_you` request through ARC's
+production FastMCP cache proxy returned one web result for
+`site:you.com/docs Web Search API` (`count=1`, strict operators). Source:
+https://you.com/docs/guides/search. The repeated identical call was a cache hit
+with the original collection timestamp. Search UUID:
+`676e3814-2b73-4a7e-a7c5-09d66ca286be`. Estimated base charge: $0.005, not a
+billing receipt. Zero Claude/model calls. Response and receipt are in ignored
+`.arc/verification/you-live-20261017/`. This verifies a representative live search
+and cache reuse, not every query/filter or broad search quality.
+
+### Optional Crusoe evidence workers (2026-10-17)
+
+The normal investigation pipeline can dispatch its focused public-evidence checks
+to Crusoe's OpenAI-compatible Chat Completions API. Claude still handles SDK/MCP
+harvesting, initial claim extraction, progress review and portrait synthesis.
+`ClaudeSDKClient` is never pointed at an OpenAI endpoint. The local journal agent
+continues to use its loopback endpoint; this adapter has no private-vault access.
+
+Configure these values in the ignored environment loaded by the backend:
+
+```dotenv
+ARC_RESEARCH_WORKER_PROVIDER=crusoe
+CRUSOE_API_KEY=<your Intelligence Foundry inference key>
+CRUSOE_WORKER_MODEL=<exact model ID from your current /v1/models catalog>
+```
+
+`CRUSOE_BASE_URL` defaults to `https://api.inference.crusoecloud.com/v1`.
+`CRUSOE_MAX_OUTPUT_TOKENS` defaults to ARC's existing 4096-token application bound;
+it is not a provider quota. The default worker provider remains `anthropic` until
+explicitly configured. Restart the API after changing its environment. Missing
+credentials, an unknown model or unsupported output parameters fail preflight
+before paid harvesting. A provider switch never causes a fallback to another
+paid model on failure.
+
+The adapter reads the catalog's supported parameters, context/completion limits
+and pricing before each new investigation. It sends one bounded evidence packet
+per worker, without tools. Returned JSON is validated using the existing worker
+schema and citation checks; only the review layer can accept a finding. Each
+provider's usage is persisted separately and combined in the investigation's
+usage events. Crusoe cost is a conservative catalog list-price estimate, charging
+all input tokens at the uncached rate; it is not a credit-balance or billing API.
+Free credits cover Crusoe consumption only, not Claude or scraping providers.
+
+Application admission reserves up to eight worker requests plus five existing
+Claude extraction/review/portrait requests. Each Crusoe reservation uses the full
+catalog context and configured output cap, so a large-context model can exceed
+the existing investigation allowance even when the actual packet is small. No
+automatic budget increase is made. Requests are serialized per investigation;
+this is not a project-wide rate limiter. Rate-limit headers and Retry-After are
+recorded. Errors/timeouts receive no automatic retry. Unknown usage blocks
+further model spending and graph commit. The HTTP timeout reuses ARC's existing
+600-second model request timeout, not an asserted provider limit.
+
+Official sources checked October 17, 2026:
+
+- [Endpoint and inference-key setup](https://docs.crusoecloud.com/quickstart/getting-started-with-serverless-inference/index.html)
+- [Model catalog and supported parameters](https://support.crusoecloud.com/hc/en-us/articles/55002524169499-How-To-List-Model-Features-via-curl-and-the-Inference-API)
+- [Published per-million-token prices](https://www.crusoe.ai/cloud/pricing)
+- [Project/model rate limits and headers](https://docs.crusoecloud.com/serverless-inference/rate-limits/index.html)
+
+Verification uses intercepted HTTP and temporary public evidence only. It covers
+provider routing, combined usage, valid/invalid citations, malformed output,
+missing usage, timeouts, rate limits, configuration and offline-mode rejection.
+Live inference remains unverified until the key and exact model are configured.
+No Claude, Crusoe generation, scraper or production graph calls were made for
+this implementation.
+
+### Judge investigation evaluation — October 17–18, 2026
+
+One user-requested investigation was run through the normal ARC API, for Martin
+Cala at Crusoe (`judge-martin-cala-20261017`). This was a real agent run, not a
+manually populated dossier. It captured 15 source records using You.com, public
+web search, Apify and GitHub. Recorded model usage was $0.03044456, excluding
+source-provider charges. No Crusoe inference was used.
+
+The assessment was **not demo-ready**: an unresolved same-name Oxford LinkedIn
+profile entered claim extraction, and Firecrawl page-reading tools were missing
+from the agent's tool catalog. The flawed graph is withdrawn from public profile
+reads and the current workspace dossier. Graph/history backups and an append-only
+withdrawal event preserve the audit at `.arc/verification/martin-withdrawal/`.
+Existing graph nodes remain stored for audit with their parent investigation
+marked `withdrawn=true`; raw Cypher consumers must respect that flag. Source
+records remain inspectable. No paid rerun has been performed after these fixes.
+
+Repairs:
+- Firecrawl uses its official authenticated HTTP endpoint. The proxy pins its
+  upstream to handshake-era MCP and reports discovery errors rather than silently
+  dropping the provider. Actual proxy `tools/list` now includes `firecrawl_scrape`;
+  no scrape was invoked to verify this. Only the existing scrape tool is allowed.
+- All search-result sources, including `search_public_web`, are discovery leads
+  rather than direct claim evidence. Extraction must assess each supplied source
+  as relevant, unresolved, or a different person before selecting claims.
+- Unresolved/different-person sources and sources absent from the extraction
+  packet stay in the archive but are excluded from later worker retrieval.
+  This is a model-assisted scope check, not independent identity verification;
+  it can reduce coverage when the bounded extraction packet omits a source.
+- Withdrawal clears the current graph/portrait and removes the assessment from
+  ledger/report exports without deleting captured records or historical events.
+
+Official documentation checked October 17–18, 2026:
+- [Firecrawl MCP authentication and HTTP endpoint](https://docs.firecrawl.dev/mcp-server)
+- [FastMCP proxy protocol-era mirroring and discovery errors](https://gofastmcp.com/servers/providers/proxy)
+- [FastMCP client protocol negotiation](https://gofastmcp.com/clients/client)
+
+Offline verification: 121 backend tests, frontend lint and production build pass.
+Read-only browser verification confirms the withdrawal survives reload, the public
+profile returns 404, the ledger has no current assessment and all 15 source records
+remain. Receipt: `/private/tmp/arc-martin-browser-receipt.json`; screenshot:
+`/private/tmp/arc-martin-withdrawn.png`. No provider calls were made by that check.
+The repaired model behavior and Firecrawl scraping remain unverified end to end.
+
+### Citation failure repair — October 18, 2026
+
+Subsequent user-started Pawan run `8d556cb2-dbe7-4f03-b04d-b55e7b2c2321`
+captured 10 source records (including a successful Firecrawl portfolio scrape),
+then failed with `Extraction cited unsupplied evidence`. Two of four extracted
+claims cited source UUIDs rather than exact passage IDs. The old all-or-nothing
+check rejected the valid claims too.
+
+Extraction now quarantines each entire invalidly cited proposal, keeps an audit in
+`claim-selection.json`, and continues with independently well-formed proposals.
+It does not guess citation replacements or strip an invalid citation from a claim
+to make it pass. Identity exclusions still apply, and no remaining claims means
+no graph commit. The prompt/schema explicitly distinguish passage `id` from
+`evidence_id`. Safe scope failures now display a specific explanation in the UI.
+
+Offline replay of this exact response retains two unreviewed claims and excludes
+two invalid proposals. Audit: `.arc/verification/citation-recovery-8d556cb2/`.
+No workers, model retries, scrapes or graph writes ran during repair. The original
+investigation remains failed, with a diagnostic event appended; saved evidence
+and original output are preserved. 122 backend tests, frontend lint/build pass.
+This fixes the reproduced extraction failure; it does not establish that a future
+full investigation or its claims will pass semantic review.
+
+### Critic input repair — October 18, 2026
+
+Later user run `fa137120-70b4-41ef-8d42-07d98bc767f6` passed extraction and
+three worker calls, but a separate 28,000-byte critic-payload check rejected its
+combined input before any critic request. The scheduler mislabeled this local
+failure as unknown cost, and the workspace showed only `ValueError`.
+
+Critic construction now uses the same serialized 48,000-byte request bound as
+the model transport (including instructions, schema, JSON escaping and metadata).
+Every cited passage is retained; optional alternative passages fit into the
+remaining space. This does not increase model, output-token, call-count or spend
+limits. A mandatory input that genuinely exceeds the wire bound still stops
+without a model call and records zero critic cost plus a specific diagnostic.
+
+Offline replay of the actual saved case constructs a 42,405-byte request with all
+seven cited passages, five findings and four alternatives. No semantic critic
+response exists for that run; the replay checks request construction only.
+Receipt: `.arc/verification/critic-input-fa137120/receipt.json`. Neither the saved
+run nor its paid workers were restarted during this repair.
+
+### Required source collection receipts (2026-10-18)
+
+The SDK collector now has a `Stop` hook backed by `CollectionCoverage`.
+It requires a completed attempt for Crossref discovery and, when captured source
+inputs provide the necessary anchor, both username checkers and DNS/archive/
+certificate checks. GitHub inspection supplies the sourced handle; a captured
+website or GitHub blog field supplies the exact domain. Search-result candidates
+alone do not trigger username/domain expansion. These requirements use the
+current investigation's inputs, not a preset person or domain.
+
+A missing receipt blocks normal model completion and returns concrete tool work
+to the same SDK session. Completed failures count as attempts (never as evidence)
+and are not automatically retried. A repeated stop with no progress aborts with
+an explicit incomplete-collection message, preserving captured evidence. Existing
+SDK turn/budget limits remain unchanged; collection receipts are saved before
+checking completeness. This does not guarantee a provider succeeds or that every
+public source has been searched. It does not retrofit historical runs.
+
+Official hook contract reviewed October 18, 2026:
+[Stop input and decision control](https://code.claude.com/docs/en/hooks#stop), plus
+installed `claude_agent_sdk.types.StopHookInput` / `SyncHookJSONOutput`.
+Offline validation: 130 backend tests; replaying the saved Pawan call receipts
+identified all six omitted source tools and blocked completion. No live Claude
+or source calls were made for this implementation; live model adherence and the
+six tools' provider responses in a fresh investigation remain unverified.
