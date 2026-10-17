@@ -1,6 +1,8 @@
 """Immutable source addressing and bounded, auditable evidence selection."""
 
 import re
+import json
+from collections import deque
 from urllib.parse import urlsplit
 from .blackboard import Blackboard, digest, encoded
 from .models import EvidencePacket, EvidenceSpan, Hypothesis, ResearchTask
@@ -141,7 +143,7 @@ class EvidenceReader:
         if not words:
             return []
         quoted = ['"' + w.replace('"', '""') + '"' for w in words]
-        excluded = self.identity_context().get("excluded_discovery_sources", [])
+        excluded = self.excluded_sources()
         placeholders = ",".join("?" for _ in excluded)
         restriction = (
             f"AND json_extract(r.payload,'$.evidence_id') NOT IN ({placeholders})"
@@ -163,6 +165,46 @@ class EvidenceReader:
             rows = query_fts(" OR ")
         return [self.read_span(row["span_id"]) for row in rows]
 
+    def excluded_sources(self):
+        context = self.identity_context()
+        return sorted(set(context.get("excluded_discovery_sources", [])) |
+                      set(context.get("excluded_identity_sources", [])))
+
+    def initial_passages(self, query: str, *, limit: int, max_bytes: int):
+        """Seed extraction from the current case, without a profession keyword list.
+
+        Rank by the actual request, then round-robin across available sources so
+        missing name/keyword matches cannot exclude an entire profession. Retain
+        omitted span IDs locally; the model can cite only the returned passages.
+        """
+        if limit < 1 or max_bytes < 1:
+            raise ValueError("Initial passage bounds must be positive")
+        all_spans = self.board.snapshot(self.run_id).spans
+        excluded_sources = set(self.excluded_sources())
+        ranked = self.search(query, limit=limit)
+        candidates = {s.id: s for s in ranked + all_spans if s.evidence_id not in excluded_sources}
+        sources = {}
+        for span in candidates.values():
+            sources.setdefault(span.evidence_id, deque()).append(span)
+        chosen = []
+        queues = deque(sources.values())
+        while queues and len(chosen) < limit:
+            queue = queues.popleft()
+            span = queue.popleft()
+            if len(json.dumps([s.model_dump() for s in chosen + [span]]).encode()) <= max_bytes:
+                chosen.append(self.read_span(span.id))
+            if queue:
+                queues.append(queue)
+        selected_ids = {s.id for s in chosen}
+        with self.board.transaction():
+            self.board._put(self.run_id, "selection_manifest", "initial", {
+                "query": query, "limit": limit, "max_bytes": max_bytes,
+                "selected_span_ids": [s.id for s in chosen],
+                "excluded_span_ids": [s.id for s in all_spans if s.id not in selected_ids],
+                "excluded_discovery_sources": sorted(excluded_sources),
+            })
+        return chosen
+
     def build_packet(self, task: ResearchTask, max_input_tokens: int):
         if task.run_id != self.run_id:
             raise ValueError("Task outside case")
@@ -171,7 +213,7 @@ class EvidenceReader:
         )
         all_spans = self.board.snapshot(self.run_id).spans
         context = self.identity_context()
-        excluded_sources = set(context.get("excluded_discovery_sources", []))
+        excluded_sources = set(self.excluded_sources())
         scoped_spans = [s for s in all_spans if s.evidence_id not in excluded_sources]
         query = task.goal + " " + hypothesis.statement
         ranked = self.search(query)

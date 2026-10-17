@@ -15,6 +15,30 @@ from backend.research.models import RunPolicy, TaskProposal, WorkerResult
 
 
 class RetrievalTests(unittest.TestCase):
+    def test_initial_passages_cover_non_developer_sources_without_name_matches(self):
+        with tempfile.TemporaryDirectory() as tmp, Blackboard(Path(tmp) / "case.db") as board:
+            board.create_run("r", "Research a ceramic artist")
+            board.create_run("other", "Other person")
+            reader = EvidenceReader(board, "r")
+            for key, body in (
+                ("exhibition", "Solo exhibition: porcelain vessels shown at the city gallery."),
+                ("interview", "Interview: clay firing and glaze experiments in the studio."),
+                ("search", "Another person has a matching name."),
+            ):
+                board.add_source("r", key, body)
+                reader.index_source(key)
+            board.add_source("other", "unrelated", "Other case must stay excluded")
+            EvidenceReader(board, "other").index_source("unrelated")
+            with board.transaction():
+                board._put("r", "identity_context", "operator", {"excluded_discovery_sources": ["search"]})
+            chosen = reader.initial_passages("A name absent from all passages", limit=24, max_bytes=12000)
+            self.assertEqual({s.evidence_id for s in chosen}, {"exhibition", "interview"})
+            self.assertTrue(all(s.run_id == "r" for s in chosen))
+            self.assertLessEqual(len(json.dumps([s.model_dump() for s in chosen]).encode()), 12000)
+            self.assertEqual(reader.initial_passages("unmatched", limit=24, max_bytes=1), [])
+            manifest = board._get("r", "selection_manifest", "initial")
+            self.assertEqual(set(manifest["excluded_span_ids"]), {s.id for s in board.snapshot("r").spans})
+
     def test_identity_context_excludes_discovery_candidates_from_packets(self):
         with (
             tempfile.TemporaryDirectory() as tmp,
@@ -25,12 +49,15 @@ class RetrievalTests(unittest.TestCase):
                 "r", "search", "Other Person built a project with ten million users"
             )
             board.add_source("r", "profile", "Selected Person built an editor project")
+            board.add_source("r", "lookalike", "Unrelated Person built an editor project")
             reader = EvidenceReader(board, "r")
             rejected = reader.index_source("search")[0]
             selected = reader.index_source("profile")[0]
+            lookalike = reader.index_source("lookalike")[0]
             context = {
                 "operator_decisions": [{"answer": "Selected Person"}],
                 "excluded_discovery_sources": ["search"],
+                "excluded_identity_sources": ["lookalike"],
             }
             with board.transaction():
                 board._put("r", "identity_context", "operator", context)
@@ -49,6 +76,9 @@ class RetrievalTests(unittest.TestCase):
             )
             packet = reader.build_packet(task, 4000)
             self.assertNotIn(rejected.id, {s.id for s in packet.spans})
+            self.assertNotIn(lookalike.id, {s.id for s in packet.spans})
+            self.assertNotIn(lookalike.id, {s.id for s in reader.search("editor project")})
+            self.assertNotIn(lookalike.id, {s.id for s in reader.initial_passages("editor", limit=10, max_bytes=8000)})
             self.assertEqual(packet.identity_context, context)
             self.assertNotIn(
                 rejected.id, {s.id for s in reader.search("built project")}
@@ -155,6 +185,42 @@ class OutputTests(unittest.TestCase):
                 asyncio.run(CachedModelCritic(model)(report, reader))
             model.generate.assert_not_awaited()
 
+    def test_bad_claim_citations_are_quarantined_without_losing_valid_claims(self):
+        from backend.research.eval_adapters import ExtractedClaims, scope_extraction
+        from types import SimpleNamespace
+        spans = [SimpleNamespace(id="passage_a", evidence_id="source_a")]
+        data = ExtractedClaims(claims=[
+            {"statement": "Invalid source-level citation", "span_ids": ["source_a"], "limitation": "Self report"},
+            {"statement": "Valid passage citation", "span_ids": ["passage_a"], "limitation": "Self report"},
+            {"statement": "Mixed valid and fabricated citations", "span_ids": ["passage_a", "invented"], "limitation": "Self report"},
+        ], selection_reason="Distinct claims", source_assessments=[
+            {"evidence_id": "source_a", "status": "relevant", "reason": "Operator-selected profile"},
+        ])
+        selected, audit = scope_extraction(data, spans)
+        self.assertEqual([c.statement for c in selected], ["Valid passage citation"])
+        self.assertEqual([r["invalid_span_ids"] for r in audit["citation_excluded_claims"]], [["source_a"], ["invented"]])
+        self.assertEqual(len(data.claims), 3)  # Preserve original model response.
+        data.claims = [data.claims[0]]
+        selected, audit = scope_extraction(data, spans)
+        self.assertEqual(selected, [])  # Never invent a claim if every citation is bad.
+        self.assertEqual(len(audit["citation_excluded_claims"]), 1)
+
+    def test_identity_scope_excludes_unresolved_sources_and_mixed_claims(self):
+        from backend.research.eval_adapters import ExtractedClaims, scope_extraction
+        data = ExtractedClaims(claims=[
+            {"statement": "Authored a cloud guide", "span_ids": ["company"], "limitation": "Authorship only"},
+            {"statement": "Works at an unrelated university", "span_ids": ["lookalike"], "limitation": "Unresolved identity"},
+        ], selection_reason="Evidence", source_assessments=[
+            {"evidence_id": "a", "status": "relevant", "reason": "Company byline matches target affiliation"},
+            {"evidence_id": "b", "status": "unresolved", "reason": "Same name; no employer match"},
+        ])
+        from types import SimpleNamespace
+        spans = [SimpleNamespace(id="company", evidence_id="a"), SimpleNamespace(id="lookalike", evidence_id="b")]
+        selected, audit = scope_extraction(data, spans)
+        self.assertEqual([c.statement for c in selected], ["Authored a cloud guide"])
+        self.assertEqual(audit["excluded_identity_sources"], ["b"])
+        data.source_assessments = []
+        with self.assertRaises(ValueError): scope_extraction(data, spans)
 
     def test_firecrawl_uses_official_authenticated_http_endpoint(self):
         from backend.agent import upstream_registry
@@ -164,7 +230,6 @@ class OutputTests(unittest.TestCase):
             self.assertEqual(server["url"], "https://mcp.firecrawl.dev/v2/mcp")
             self.assertEqual(server["headers"]["Authorization"], "Bearer test-only")
 
-
     def test_firecrawl_proxy_pins_supported_era_and_reports_discovery_errors(self):
         from backend.mcp_servers.cached_proxy import build_proxy
         with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {
@@ -173,7 +238,6 @@ class OutputTests(unittest.TestCase):
             build_proxy("firecrawl")
             self.assertEqual(create.call_args.kwargs["mode"], "legacy")
             self.assertEqual(create.call_args.kwargs["provider_error_strategy"], "raise")
-
 
     def test_fenced_json_and_trailing_comma_recover_without_changing_strings(self):
         from backend.research.parsing import parse_model_json
@@ -186,6 +250,31 @@ class OutputTests(unittest.TestCase):
             parse_model_json('{"findings": [{"statement":"invented"}]}', WorkerResult)
         with self.assertRaises(ValueError):
             parse_model_json('Here is some text {"status":"completed"}', WorkerResult)
+
+    def test_extra_extracted_candidate_is_recorded_without_exceeding_task_bound(self):
+        from backend.research.eval_adapters import ExtractedClaims, select_claims
+        from backend.research.parsing import parse_model_json
+
+        payload = {
+            "claims": [
+                {"statement": name, "span_ids": ["source"], "limitation": "Self-report"}
+                for name in ("Stela", "CodePilot", "Khatabook", "Selection reason: three projects")
+            ],
+            "selection_reason": "Distinct projects",
+        }
+        extracted = parse_model_json(json.dumps(payload), ExtractedClaims)
+        selected, audit = select_claims(extracted, {"source"})
+        self.assertEqual([c.statement for c in selected], ["Stela", "CodePilot", "Khatabook"])
+        self.assertEqual(audit["excluded_claims"], payload["claims"][3:])
+        self.assertEqual(audit["selected_claims"], payload["claims"][:3])
+        self.assertEqual(len(extracted.claims), 4)
+        # A partial result must not require inventing claims to reach exactly three.
+        extracted.claims = extracted.claims[:1]
+        self.assertEqual(len(select_claims(extracted, {"source"})[0]), 1)
+        with self.assertRaises(ValueError):
+            select_claims(extracted, {"different-source"})
+        with self.assertRaises(ValueError):
+            parse_model_json('{"claims":[{"statement":"No evidence"}],"selection_reason":"x"}', ExtractedClaims)
 
     def test_duplicate_project_coverage_rejected(self):
         from backend.research.eval_adapters import (
@@ -233,7 +322,7 @@ class WorkspaceApiTests(unittest.IsolatedAsyncioTestCase):
                 patch("backend.orchestrator.model_for", return_value=MODEL),
                 patch(
                     "backend.orchestrator.harvest",
-                    new=AsyncMock(return_value=SimpleNamespace(total_cost_usd=0.01)),
+                    new=AsyncMock(return_value=SimpleNamespace(total_cost_usd=0.01, result="Collected evidence")),
                 ),
             ):
                 run = Investigation("Person", budget=1.5)

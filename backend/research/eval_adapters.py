@@ -1,8 +1,9 @@
 """Evaluation-only adapters: model candidates, semantic review and portrait."""
 
 from pydantic import Field
+from typing import Literal
 
-from .models import Model, WorkerResult
+from .models import Model, WorkerResult, RunPolicy
 from .critic import CriticDecision
 from .projection import PortraitDraft
 from .prompts import ROLES
@@ -11,13 +12,72 @@ from .eval_model import save_json
 
 class ExtractedClaim(Model):
     statement: str = Field(min_length=1, max_length=1000)
-    span_ids: list[str] = Field(min_length=1)
+    span_ids: list[str] = Field(min_length=1, description="Exact id values of supplied passages, NOT evidence_id values. Copy unchanged. Every citation must support this claim.")
     limitation: str
 
 
+class SourceAssessment(Model):
+    evidence_id: str
+    status: Literal["relevant", "unresolved", "different_person"]
+    reason: str = Field(min_length=1)
+
+
 class ExtractedClaims(Model):
-    claims: list[ExtractedClaim] = Field(min_length=3, max_length=3)
+    claims: list[ExtractedClaim] = Field(
+        default_factory=list, description="Up to three claims in priority order. Return none if identity/source support is insufficient."
+    )
     selection_reason: str
+    source_assessments: list[SourceAssessment] = Field(default_factory=list)
+
+
+class ExtractionScopeError(ValueError):
+    """Safe, actionable extraction error; contains no model or source text."""
+
+
+def scope_extraction(extracted, spans):
+    """Quarantine unresolved source identities before workers or graph projection.
+
+    Assessments are model scope decisions, not identity verification. Full source
+    coverage is required; omitted/unknown IDs cannot silently enter later packets.
+    """
+    sources = {s.evidence_id for s in spans}
+    assessments = {a.evidence_id: a for a in extracted.source_assessments}
+    if set(assessments) != sources or len(assessments) != len(extracted.source_assessments):
+        raise ExtractionScopeError("Source identity assessment was incomplete or inconsistent. Saved evidence is retained; no graph was committed.")
+    excluded = {sid for sid, a in assessments.items() if a.status != "relevant"}
+    all_ids = {s.id for s in spans}
+    eligible = {s.id for s in spans if s.evidence_id not in excluded}
+    # Reject a whole proposal if any citation is invalid. Never remap a source ID
+    # to a passage, strip just the bad citation, or discard unrelated valid claims.
+    citation_valid = [c for c in extracted.claims if set(c.span_ids) <= all_ids]
+    relevant = [c for c in citation_valid if set(c.span_ids) <= eligible]
+    selected, audit = select_claims(extracted.model_copy(update={"claims": relevant}), eligible)
+    audit.update(
+        source_assessments=[a.model_dump() for a in extracted.source_assessments],
+        excluded_identity_sources=sorted(excluded),
+        citation_excluded_claims=[{"claim": c.model_dump(), "invalid_span_ids": sorted(set(c.span_ids) - all_ids)}
+                                 for c in extracted.claims if not set(c.span_ids) <= all_ids],
+        identity_excluded_claims=[c.model_dump() for c in citation_valid if not set(c.span_ids) <= eligible],
+    )
+    return selected, audit
+
+
+def select_claims(extracted: ExtractedClaims, allowed_span_ids: set[str]):
+    """Validate all candidates, then apply the application task bound without retries.
+
+    Keep omitted candidates in a local audit; none are promoted to reviewed evidence.
+    Candidate ordering comes from extraction and is not a verification judgment.
+    """
+    if any(not set(c.span_ids) <= allowed_span_ids for c in extracted.claims):
+        raise ValueError("Extraction cited unsupplied evidence")
+    limit = RunPolicy().top_claims
+    selected = extracted.claims[:limit]
+    return selected, {
+        "selection_reason": extracted.selection_reason,
+        "policy": "First candidates in model priority order, limited by RunPolicy.top_claims; all remain unreviewed.",
+        "selected_claims": [c.model_dump() for c in selected],
+        "excluded_claims": [c.model_dump() for c in extracted.claims[limit:]],
+    }
 
 
 def validate_extracted_coverage(extracted, required_groups):

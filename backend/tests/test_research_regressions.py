@@ -339,7 +339,7 @@ class RegressionTests(unittest.TestCase):
         )
         self.assertEqual(self.board.task(task.id).cost_usd, 0.25)
 
-    def test_exa_only_proxy_refresh_does_not_require_apify_key(self):
+    def test_you_only_proxy_refresh_does_not_require_apify_key(self):
         from backend.mcp_servers.cached_proxy import build_proxy
         from unittest.mock import MagicMock
 
@@ -347,17 +347,17 @@ class RegressionTests(unittest.TestCase):
         with (
             patch.dict(
                 "os.environ",
-                {"ARC_CACHE_REFRESH_ID": "fresh-exa", "APIFY_API_TOKEN": ""},
+                {"ARC_CACHE_REFRESH_ID": "fresh-you", "APIFY_API_TOKEN": ""},
             ),
             patch(
                 "backend.mcp_servers.cached_proxy.database_path",
-                return_value=self.path.parent / "exa-proxy.sqlite3",
+                return_value=self.path.parent / "you-proxy.sqlite3",
             ),
             patch(
                 "backend.mcp_servers.cached_proxy.upstream_registry",
                 return_value=(
                     {"osint": {"type": "http", "url": "http://127.0.0.1:8001/mcp"}},
-                    ["mcp__osint__search_identity_exa"],
+                    ["mcp__osint__search_web_you"],
                 ),
             ),
             patch("backend.mcp_servers.cached_proxy.create_proxy", return_value=proxy),
