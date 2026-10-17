@@ -57,8 +57,8 @@ def upstream_registry() -> tuple[dict, list[str]]:
         allowed.extend(["mcp__robin__robin_search", "mcp__robin__robin_scrape"])
     if key := os.getenv("FIRECRAWL_API_KEY"):
         servers["firecrawl"] = {
-            "type": "stdio", "command": "npx", "args": ["-y", "firecrawl-mcp"],
-            "env": {"FIRECRAWL_API_KEY": key},
+            "type": "http", "url": "https://mcp.firecrawl.dev/v2/mcp",
+            "headers": {"Authorization": f"Bearer {key}"},
         }
         allowed.append("mcp__firecrawl__firecrawl_scrape")
     if token := os.getenv("GITHUB_TOKEN"):

@@ -132,7 +132,10 @@ def build_proxy(provider: str):
 
         proxy = FastMCPProxy(client_factory=lambda: robin_client, name="ARC-robin-cache", lifespan=lifespan)
     else:
-        proxy = create_proxy({"mcpServers": {provider: servers[provider]}}, name=f"ARC-{provider}-cache")
+        # Firecrawl currently advertises handshake-era MCP only. Otherwise a
+        # modern client of this proxy forces an unsupported era upstream.
+        options = {"mode": "legacy", "provider_error_strategy": "raise"} if provider == "firecrawl" else {}
+        proxy = create_proxy({"mcpServers": {provider: servers[provider]}}, name=f"ARC-{provider}-cache", **options)
     proxy.add_middleware(SourceCacheMiddleware(cache, namespace,
         {tool.split("__", 2)[2] for tool in allowed if tool.startswith(f"mcp__{provider}__")},
         os.getenv("ARC_CACHE_REFRESH_ID", ""), offline=os.getenv("ARC_RESEARCH_OFFLINE") == "1", robin_client=robin_client))

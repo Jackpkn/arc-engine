@@ -126,6 +126,25 @@ class RetrievalTests(unittest.TestCase):
 
 
 class OutputTests(unittest.TestCase):
+    def test_firecrawl_uses_official_authenticated_http_endpoint(self):
+        from backend.agent import upstream_registry
+        with patch.dict(os.environ, {"FIRECRAWL_API_KEY": "test-only"}):
+            server = upstream_registry()[0]["firecrawl"]
+            self.assertEqual(server["type"], "http")
+            self.assertEqual(server["url"], "https://mcp.firecrawl.dev/v2/mcp")
+            self.assertEqual(server["headers"]["Authorization"], "Bearer test-only")
+
+
+    def test_firecrawl_proxy_pins_supported_era_and_reports_discovery_errors(self):
+        from backend.mcp_servers.cached_proxy import build_proxy
+        with tempfile.TemporaryDirectory() as tmp, patch.dict(os.environ, {
+            "FIRECRAWL_API_KEY": "test-only", "ARC_DATABASE_PATH": str(Path(tmp) / "cache.db"),
+        }), patch("backend.mcp_servers.cached_proxy.create_proxy") as create, patch("backend.mcp_servers.cached_proxy.SourceCache"):
+            build_proxy("firecrawl")
+            self.assertEqual(create.call_args.kwargs["mode"], "legacy")
+            self.assertEqual(create.call_args.kwargs["provider_error_strategy"], "raise")
+
+
     def test_fenced_json_and_trailing_comma_recover_without_changing_strings(self):
         from backend.research.parsing import parse_model_json
 
