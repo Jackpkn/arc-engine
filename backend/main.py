@@ -22,6 +22,7 @@ from backend.storage import RunStore, database_path
 from backend.profile_routes import router as profile_router
 from backend.vault_routes import router as vault_router
 from backend.agent_routes import router as agent_router
+from backend.pilot_routes import router as pilot_router
 
 
 runs: dict[str, Investigation] = {}
@@ -69,6 +70,7 @@ app = FastAPI(title="ARC OSINT Engine", lifespan=lifespan)
 app.include_router(profile_router)
 app.include_router(vault_router)
 app.include_router(agent_router)
+app.include_router(pilot_router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[

@@ -14,3 +14,17 @@ export async function profileRequest(path: string, body?: unknown, method?: stri
   if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : `Request failed (${response.status}).`);
   return data;
 }
+
+export async function pilotRequest(path: string, body?: unknown, method?: string) {
+  const base = new URL(API_BASE);
+  if (typeof window !== "undefined" && ["localhost", "127.0.0.1"].includes(window.location.hostname)
+      && ["localhost", "127.0.0.1"].includes(base.hostname)) base.hostname = window.location.hostname;
+  const response = await fetch(`${base.toString().replace(/\/$/, "")}${path}`, {
+    method: method || (body === undefined ? "GET" : "POST"), credentials: "include", cache: "no-store",
+    // Empty MIME keeps JSON POSTs simple across loopback ports; the API still checks origin and owner cookie.
+    body: body === undefined ? undefined : new Blob([JSON.stringify(body)], { type: "" }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(typeof data.detail === "string" ? data.detail : `Request failed (${response.status}).`);
+  return data;
+}
