@@ -12,6 +12,13 @@ from .models import (
 from .evidence import EvidenceReader
 
 
+class CriticInputError(ValueError):
+    """Local preflight rejection: no reviewer request was sent or charged."""
+
+    def __init__(self):
+        super().__init__("Evidence review input exceeds the configured model-request size. No critic call was sent; sources are saved and no graph was committed.")
+
+
 class FindingReview(Model):
     finding_id: str
     accepted: bool

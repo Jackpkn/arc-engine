@@ -12,7 +12,7 @@ from .models import (
 )
 from .blackboard import Blackboard
 from .evidence import EvidenceReader
-from .critic import check_progress, review_progress, apply_review, CriticDecision
+from .critic import check_progress, review_progress, apply_review, CriticDecision, CriticInputError
 from .workers import ResearchWorker
 
 
@@ -194,7 +194,8 @@ async def run_research(
                     )
                 except asyncio.CancelledError:
                     raise
-                except Exception:
+                except Exception as exc:
+                    local_rejection = isinstance(exc, CriticInputError)
                     with board.transaction():
                         board._put(
                             run,
@@ -202,7 +203,7 @@ async def run_research(
                             str(wave),
                             {
                                 "cost_usd": 0
-                                if policy.execution_mode == "offline"
+                                if policy.execution_mode == "offline" or local_rejection
                                 else None
                             },
                         )
@@ -212,11 +213,11 @@ async def run_research(
                             run,
                             "critic.failed",
                             wave=wave,
-                            reason="Review failed; no automatic model retry",
+                            reason=str(exc) if local_rejection else "Review failed; no automatic model retry",
                         )
                     return stop(
                         "NEEDS_HUMAN"
-                        if policy.execution_mode == "offline"
+                        if policy.execution_mode == "offline" or local_rejection
                         else "UNKNOWN_COST"
                     )
                 checkpoint.update(status="REVIEW_READY", decision=decision.model_dump())

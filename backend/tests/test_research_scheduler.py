@@ -12,6 +12,20 @@ class SchedulerTests(unittest.TestCase):
     tearDown = fixtures.BoardTests.tearDown
     proposal = fixtures.BoardTests.proposal
 
+    def test_critic_local_preflight_rejection_has_zero_known_cost(self):
+        from backend.research.critic import CriticInputError
+        async def critic(report, reader):
+            raise CriticInputError()
+        out = asyncio.run(run_research(
+            ResearchGoal(run_id="r", target="Investigate builder", initial_tasks=[self.proposal()], remaining_budget=1),
+            self.board, ReplayWorker(lambda t, p: WorkerResult(cost_usd=0)),
+            RunPolicy(execution_mode="authorized_model"), critic=critic,
+        ))
+        self.assertEqual(out.stop_reason, "NEEDS_HUMAN")
+        self.assertEqual(self.board._get("r", "critic_usage", "1")["cost_usd"], 0)
+        event = next(e for e in self.board.events("r") if e["type"] == "critic.failed")
+        self.assertIn("No critic call was sent", event["reason"])
+
     def test_critic_rework_and_stop_on_no_new_work(self):
         calls = []
 

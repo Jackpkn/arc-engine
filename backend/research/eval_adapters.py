@@ -125,22 +125,7 @@ class CachedModelCritic:
             "passages": [s.model_dump() for s in passages],
             "alternative_passages": [],
         }
-        import json
-
-        for span in alternatives:
-            trial = {
-                **payload,
-                "alternative_passages": payload["alternative_passages"]
-                + [span.model_dump()],
-            }
-            if len(json.dumps(trial, ensure_ascii=False).encode()) <= 24000:
-                payload = trial
-            if len(payload["alternative_passages"]) >= 4:
-                break
-        if len(json.dumps(payload, ensure_ascii=False).encode()) > 28000:
-            raise ValueError("Critic packet exceeds evaluation bound")
-        decision, cost = await self.model.generate(
-            f"critic:{report.wave}",
+        instruction = (
             "You are the ARC semantic evidence critic. Check each candidate against its exact cited "
             "passages, dates, attribution, qualifications and counterevidence. A reference existing "
             "does NOT imply entailment. Reject overstatement or findings unrelated to the hypothesis. "
@@ -154,9 +139,27 @@ class CachedModelCritic:
             "respect depth<=2, waves<=3 and total<=8. If cache is exhausted return no proposals. "
             "Use only supplied IDs. Entities optional: only Artifact nodes with a URL literally in "
             "a cited accepted finding's passage; no inferred ownership edges. Leave relationships empty "
-            "unless explicitly supported. Keep total output concise; omit cost_usd.",
-            payload,
-            CriticDecision,
+            "unless explicitly supported. Keep total output concise; omit cost_usd."
+        )
+        from .eval_model import prepare_model_request, EvaluationStopped
+        from .critic import CriticInputError
+        # Keep every cited passage, including potential counterevidence. Optional
+        # alternatives use only the space left in the actual serialized request.
+        try:
+            prepare_model_request(instruction, payload, CriticDecision)
+        except EvaluationStopped:
+            raise CriticInputError() from None
+        for span in alternatives:
+            trial = {**payload, "alternative_passages": payload["alternative_passages"] + [span.model_dump()]}
+            try:
+                prepare_model_request(instruction, trial, CriticDecision)
+            except EvaluationStopped:
+                continue
+            payload = trial
+            if len(payload["alternative_passages"]) >= 4:
+                break
+        decision, cost = await self.model.generate(
+            f"critic:{report.wave}", instruction, payload, CriticDecision,
         )
         decision.cost_usd = cost
         valid_spans = {

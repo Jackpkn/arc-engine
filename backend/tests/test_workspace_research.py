@@ -1,6 +1,7 @@
 """Product integration checks; no providers or production databases."""
 
 import os
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -126,6 +127,35 @@ class RetrievalTests(unittest.TestCase):
 
 
 class OutputTests(unittest.TestCase):
+    def test_critic_retains_all_citations_when_full_request_fits_wire_limit(self):
+        import asyncio
+        from types import SimpleNamespace
+        from backend.research.eval_adapters import CachedModelCritic
+        from backend.research.critic import CriticDecision
+        def record(**values):
+            return SimpleNamespace(**values, model_dump=lambda: values)
+        spans = [record(id=f"s{i}", text="evidence " * 1100) for i in range(3)]
+        finding = record(id="f", span_ids=[s.id for s in spans])
+        report = SimpleNamespace(wave=1, after=SimpleNamespace(
+            findings=[finding], hypotheses=[], tasks=[], leads=[]))
+        reader = SimpleNamespace(read_span=lambda sid: next(s for s in spans if s.id == sid), identity_context=lambda: {})
+        with tempfile.TemporaryDirectory() as tmp:
+            model = SimpleNamespace(generate=AsyncMock(return_value=(CriticDecision(), 0)), ledger=SimpleNamespace(directory=Path(tmp)))
+            asyncio.run(CachedModelCritic(model)(report, reader))
+            payload = model.generate.call_args.args[2]
+            self.assertGreater(len(json.dumps(payload).encode()), 28000)
+            self.assertEqual(payload["passages"], [s.model_dump() for s in spans])
+            from backend.research.eval_model import prepare_model_request, MAX_REQUEST_BYTES
+            _, _, wire = prepare_model_request(model.generate.call_args.args[1], payload, CriticDecision)
+            self.assertLessEqual(len(wire), MAX_REQUEST_BYTES)
+            from backend.research.critic import CriticInputError
+            spans[0] = record(id="s0", text="x" * MAX_REQUEST_BYTES)
+            model.generate.reset_mock()
+            with self.assertRaises(CriticInputError):
+                asyncio.run(CachedModelCritic(model)(report, reader))
+            model.generate.assert_not_awaited()
+
+
     def test_firecrawl_uses_official_authenticated_http_endpoint(self):
         from backend.agent import upstream_registry
         with patch.dict(os.environ, {"FIRECRAWL_API_KEY": "test-only"}):
